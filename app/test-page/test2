@@ -1,0 +1,169 @@
+"use client";
+import { Box } from '@mantine/core';
+
+import { useState } from "react";
+import { 
+  PasswordInput, 
+  TextInput, 
+  Button, 
+  Text, 
+  Box, 
+  Title, 
+  Badge, 
+  Paper, 
+  Stack, 
+  Group 
+} from '@mantine/core';
+import { useForm } from '@mantine/form';
+import { IconSearch, IconLock, IconUser, IconBolt } from '@tabler/icons-react';
+
+type UserRole = "worker" | "employer";
+
+export default function Login({ onLogin }: { onLogin: (role: UserRole) => void }) {
+  const [role, setRole] = useState<UserRole>("worker");
+
+  const form = useForm({
+    initialValues: { email: '', password: '' },
+    validate: {
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Email non valida'),
+      password: (value) => (value.length >= 4 ? null : 'Password troppo breve'),
+    },
+  });
+
+  return (
+    <Box style={{ 
+      minHeight: '100vh', 
+      backgroundColor: '#f1f5f9', 
+      position: 'relative',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      padding: '40px 20px'
+    }}>
+      
+      {/* --- SFONDO ANIMATO (Figure geometriche soft) --- */}
+      <div style={{ position: 'absolute', width: '100%', height: '100%', zIndex: 0, pointerEvents: 'none' }}>
+        <div className="blob blob-1" />
+        <div className="blob blob-2" />
+      </div>
+
+      <style jsx global>{`
+        .blob {
+          position: absolute;
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.08));
+          filter: blur(40px);
+          z-index: 0;
+        }
+        .blob-1 {
+          width: 400px; height: 400px;
+          top: -100px; left: -100px;
+          border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+          animation: transform 20s infinite alternate;
+        }
+        .blob-2 {
+          width: 300px; height: 300px;
+          bottom: -50px; right: -50px;
+          border-radius: 50%;
+          animation: transform 15s infinite alternate-reverse;
+        }
+        @keyframes transform {
+          0% { transform: translate(0, 0) rotate(0deg); }
+          100% { transform: translate(30px, 50px) rotate(15deg); }
+        }
+      `}</style>
+
+      {/* --- IL JAMBO (Hero Section) --- */}
+      <Box mb={40} style={{ textAlign: 'center', zIndex: 1, paddingTop: '20px' }}>
+        <Badge 
+          color="teal" 
+          variant="light" 
+          mb="md" 
+          size="lg" 
+          radius="sm"
+          leftSection={<IconBolt size={14} />}
+        >
+          Lavora oggi, vieni pagato subito
+        </Badge>
+
+        <Title order={1} style={{ fontSize: 'clamp(2.5rem, 8vw, 3.5rem)', fontWeight: 900, letterSpacing: '-2px', lineHeight: 1 }}>
+          extra<span style={{ color: '#10b981' }}>Job</span>
+        </Title>
+        
+        <Text c="dimmed" mt="md" size="lg" fw={500} style={{ maxWidth: 400, margin: '10px auto' }}>
+          La piattaforma per gli extra nel settore hospitality.
+        </Text>
+      </Box>
+
+      {/* --- BOX DI LOGIN --- */}
+      <Paper withBorder shadow="xl" p={30} radius="24px" style={{ 
+        width: '100%', 
+        maxWidth: '420px', 
+        zIndex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <form onSubmit={form.onSubmit(() => onLogin(role))}>
+          <Stack gap="lg">
+            
+            <TextInput 
+              label="Email"
+              placeholder="Inserisci la tua email"
+              radius="md"
+              size="md"
+              leftSection={<IconUser size={18} stroke={1.5} color="#94a3b8" />}
+              {...form.getInputProps('email')}
+            />
+
+            <PasswordInput
+              label="Password"
+              placeholder="Inserisci la password"
+              radius="md"
+              size="md"
+              leftSection={<IconLock size={18} stroke={1.5} color="#94a3b8" />}
+              {...form.getInputProps('password')}
+            />
+
+            {/* SELETTORE RUOLO PROFESSIONALE */}
+            <Box>
+              <Text size="sm" fw={600} mb={8}>Come vuoi accedere?</Text>
+              <Group gap="xs" grow>
+                <Button 
+                  variant={role === "worker" ? "filled" : "light"} 
+                  color="teal" 
+                  onClick={() => setRole("worker")}
+                  radius="md"
+                >
+                  👷 Lavoratore
+                </Button>
+                <Button 
+                  variant={role === "employer" ? "filled" : "light"} 
+                  color="blue" 
+                  onClick={() => setRole("employer")}
+                  radius="md"
+                >
+                  🏢 Azienda
+                </Button>
+              </Group>
+            </Box>
+
+            <Button 
+              type="submit" 
+              fullWidth 
+              size="lg" 
+              radius="md" 
+              color={role === "worker" ? "teal" : "blue"}
+              style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            >
+              Accedi
+            </Button>
+
+            <Text ta="center" size="sm" c="dimmed">
+              Non hai un account? <Text component="a" href="#" fw={700} c="teal">Iscriviti</Text>
+            </Text>
+          </Stack>
+        </form>
+      </Paper>
+    </Box>
+  );
+}

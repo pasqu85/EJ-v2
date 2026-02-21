@@ -1,89 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import JobCard from "../components/JobCard";
+import { useSearchParams } from "next/navigation";
+
 import Login from "../components/Login";
-import { STORAGE_KEYS } from "./lib/storageKeys";
-import { DateTimePicker } from "@mantine/dates";
-import { MiniCalendar } from '@mantine/dates';
+import JobCard from "../components/JobCard";
+import ProfilePage from "../components/ProfilePage";
+import ApplicationsPage from "../components/ApplicationsPage";
+import JobDetailsSheet from "@/components/JobDetailsSheet";
 
-// Helpers: add hours and round minutes to nearest step (default: round up to next 10 minutes)
-function addHours(date: Date, hours: number): Date {
-  return new Date(date.getTime() + hours * 60 * 60 * 1000);
-}
+import { STORAGE_KEYS } from "@/app/lib/storageKeys";
+import { MiniCalendar, DatePickerInput } from "@mantine/dates";
+import { NativeSelect } from "@mantine/core";
+import { useRouter } from "next/navigation";
+import { supabase } from "./lib/supabaseClient";
+import BottomBar from "@/components/BottomBar";
+import { applyToJob, getMyAppliedJobIds, withdrawApplication } from "@/app/lib/applications";
 
-function roundMinutes(date: Date, step = 10, method: 'ceil' | 'floor' | 'nearest' = 'ceil'): Date {
-  const d = new Date(date);
-  const minutes = d.getMinutes();
-  const remainder = minutes % step;
-  if (remainder === 0) {
-    d.setSeconds(0);
-    d.setMilliseconds(0);
-    return d;
-  }
-  if (method === 'ceil') {
-    d.setMinutes(minutes + (step - remainder));
-  } else if (method === 'floor') {
-    d.setMinutes(minutes - remainder);
-  } else {
-    d.setMinutes(Math.round(minutes / step) * step);
-  }
-  d.setSeconds(0);
-  d.setMilliseconds(0);
-  return d;
-}
-
-function addHoursAndRound(date: Date, hours: number, step = 10) {
-  return roundMinutes(addHours(date, hours), step, 'ceil');
-}
-
-/**
- * Returns current time plus optional hours offset, with minutes rounded to `step` minutes (default 10).
- * Usage: `hours(2)` -> now + 2 hours, minutes rounded up to nearest 10.
- */
-function hours(offsetHours = 0, step = 10) {
-  return addHoursAndRound(new Date(), offsetHours, step);
-}
-
-// Robust UUID generator with fallbacks for mobile environments
-function generateId() {
-  try {
-    if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function') {
-      return (crypto as any).randomUUID();
-    }
-
-    // Use getRandomValues if available for cryptographically strong randomness
-    if (typeof crypto !== 'undefined' && typeof (crypto as any).getRandomValues === 'function') {
-      const bytes = (crypto as any).getRandomValues(new Uint8Array(16));
-      // Per RFC 4122 v4
-      bytes[6] = (bytes[6] & 0x0f) | 0x40;
-      bytes[8] = (bytes[8] & 0x3f) | 0x80;
-      const hex: string[] = [];
-      for (let i = 0; i < bytes.length; i++) {
-        hex.push(bytes[i].toString(16).padStart(2, '0'));
-      }
-      return (
-        hex.slice(0, 4).join('') + '-' +
-        hex.slice(4, 6).join('') + '-' +
-        hex.slice(6, 8).join('') + '-' +
-        hex.slice(8, 10).join('') + '-' +
-        hex.slice(10, 16).join('')
-      );
-    }
-
-    // Last resort: math-based pseudo-random UUID (not cryptographically secure)
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
-  } catch (e) {
-    // Fallback safe string
-    return 'id-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
-  }
-} 
-
+// -------------------------
+// TYPES
+// -------------------------
 type UserRole = "worker" | "employer" | null;
+type Tab = "home" | "applications" | "profile";
 
 export type Job = {
   id: string;
@@ -94,142 +32,234 @@ export type Job = {
   pay: string;
 };
 
+// -------------------------
+// CONSTANTS
+// -------------------------
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTES = ["00", "10", "20", "30", "40", "50"];
+
+// -------------------------
+// HELPERS
+// -------------------------
+function generateId() {
+  try {
+    // @ts-ignore
+    if (typeof crypto !== "undefined" && crypto?.randomUUID) return crypto.randomUUID();
+  } catch { }
+  return "id-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
+}
+
+function todayYMD() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`; // YYYY-MM-DD
+}
+
+function combineYMDTime(dayYMD: string, hhmm: string) {
+  const [y, m, d] = dayYMD.split("-").map(Number);
+  const [hh, mm] = hhmm.split(":").map(Number);
+
+  const out = new Date();
+  out.setFullYear(y, (m || 1) - 1, d || 1);
+  out.setHours(hh || 0, mm || 0, 0, 0);
+  return out;
+}
+
+function reviveJobs(raw: string | null): Job[] {
+  const parsed = raw ? (JSON.parse(raw) as any[]) : [];
+  return parsed.map((j) => ({
+    ...j,
+    startDate: new Date(j.startDate),
+    endDate: new Date(j.endDate),
+  }));
+}
+
+
+// ✅ fuori dal component: no hook-order issues
+const computeNumberOfDays = (width: number) => {
+  const MIN = 6;
+  const MAX = 20;
+  const DAY_MIN_PX = 96;
+  const usable = Math.max(320, width) - 320;
+  const calculated = Math.floor(usable / DAY_MIN_PX);
+  return Math.max(MIN, Math.min(MAX, calculated || 7));
+};
+
+// -------------------------
+// EMPLOYER PANEL
+// -------------------------
 function EmployerPanel({
   jobs,
-  addJob,
+  onAddJob,
 }: {
   jobs: Job[];
-  addJob: (job: Omit<Job, "id">) => void;
+  onAddJob: (job: Omit<Job, "id">) => void;
 }) {
   const [role, setRole] = useState("");
   const [location, setLocation] = useState("");
-  const [startDate, setStartDate] = useState<Date | null>(hours(0));
-  const [endDate, setEndDate] = useState<Date | null>(hours(2));
   const [pay, setPay] = useState("");
 
-  // --- QUI COMINCIA IL PEZZO CHE ABBIAMO MODIFICATO ---
+  // UI state (string, mobile friendly)
+  const [startDay, setStartDay] = useState<string | null>(todayYMD());
+  const [startTime, setStartTime] = useState<string>("09:00");
+
+  const [endDay, setEndDay] = useState<string | null>(todayYMD());
+  const [endTime, setEndTime] = useState<string>("11:00");
+
   const handleSubmit = () => {
-    // Trasformiamo i valori in oggetti Date sicuri per evitare l'errore .toLocaleTimeString
-    const sDate = startDate instanceof Date ? startDate : startDate ? new Date(startDate) : null;
-    const eDate = endDate instanceof Date ? endDate : endDate ? new Date(endDate) : null;
-
-    if (!role || !location || !sDate || !eDate || !pay) {
-      alert("Compila tutti i campi correttamente.");
+    if (!role || !location || !pay) {
+      alert("Compila tutti i campi.");
+      return;
+    }
+    if (!startDay || !endDay) {
+      alert("Seleziona date valide.");
       return;
     }
 
-    if (eDate <= sDate) {
-      alert("L'orario di fine deve essere dopo quello di inizio!");
+    const s = combineYMDTime(startDay, startTime);
+    const e = combineYMDTime(endDay, endTime);
+
+    if (e <= s) {
+      alert("La fine deve essere dopo l’inizio.");
       return;
     }
 
-    const orarioInizio = sDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const orarioFine = eDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const dataFormattata = sDate.toLocaleDateString();
+    onAddJob({ role, location, startDate: s, endDate: e, pay });
 
-    addJob({
-      role,
-      location,
-      startDate: sDate, 
-      endDate: eDate,
-      pay: pay
-    });
-
-    // Reset del form
+    // reset
     setRole("");
     setLocation("");
-    setStartDate(hours(0));
-    setEndDate(hours(2));
     setPay("");
-    
-    alert("Lavoro pubblicato!");
+    setStartDay(todayYMD());
+    setEndDay(todayYMD());
+    setStartTime("09:00");
+    setEndTime("11:00");
+
+    alert("Lavoro pubblicato ✅");
   };
-  // --- QUI FINISCE IL PEZZO MODIFICATO ---
 
   return (
     <div className="p-5 space-y-6 text-left">
       <h2 className="text-xl font-bold">Pubblica un lavoro</h2>
 
-      <div className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-          <DateTimePicker 
-            label="Inizio"
-            variant="filled" 
-            radius="xl" 
-            size="md"
-            placeholder="Data e ora inizio"
-            dropdownType="modal" // <--- Questa è la chiave per il mobile!
-            value={startDate}
-            timePickerProps={{
-              minutesStep: 10,
-              withDropdown: true,
-              popoverProps: { withinPortal: false },
-              format: '24h',
-            }}
-            onChange={(e) => setStartDate(new Date(e?.toString() || ""))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <DatePickerInput
+            label="Data inizio"
+            variant="filled"
+            radius="xl"
+            dropdownType="modal"
+            value={startDay}
+            onChange={setStartDay as any}
           />
 
-          <DateTimePicker 
-            label="Fine"
-            variant="filled" 
-            radius="xl" 
-            size="md"
-            placeholder="Data e ora fine"
-            value={endDate}
-            presets={[
-              { label: '10:00', value: new Date().toString() },
-              { label: 'Lunch', value: new Date(new Date().setHours(13, 0, 0, 0)).toString() },
-            ]}
-            dropdownType="modal" // <--- Questa è la chiave per il mobile!
-            timePickerProps={{
-              minutesStep: 10,
-              withDropdown: true,
-              popoverProps: { withinPortal: false },
-              format: '24h',
+          <div
+            className="grid grid-cols-2 gap-3 no-context-menu"
+            onContextMenuCapture={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
             }}
-            onChange={(e) => setEndDate(new Date(e?.toString() || ""))}
-            minDate={startDate || undefined}
-          />
+          >
 
+            <NativeSelect
+              label="Ora"
+              size="md"
+              radius="xl"
+              value={startTime.split(":")[0]}
+              onChange={(e) =>
+                setStartTime(`${e.currentTarget.value}:${startTime.split(":")[1]}`)
+              }
+              data={HOURS.map((h) => ({ value: h, label: h }))}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            />
+
+            <NativeSelect
+              label="Min"
+              size="md"
+              radius="xl"
+              value={startTime.split(":")[1]}
+              onChange={(e) =>
+                setStartTime(`${startTime.split(":")[0]}:${e.currentTarget.value}`)
+              }
+              data={MINUTES.map((m) => ({ value: m, label: m }))}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+            />
+          </div>
         </div>
-        
-        <input
-          placeholder="Ruolo (es. Cameriere)"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="w-full p-3 rounded-xl border outline-none"
-        />
 
-        <input
-          placeholder="Luogo"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          className="w-full p-3 rounded-xl border outline-none"
-        />
+        <div className="space-y-3">
+          <DatePickerInput
+            label="Data fine"
+            variant="filled"
+            radius="xl"
+            dropdownType="modal"
+            value={endDay}
+            onChange={setEndDay as any}
+          />
 
-        <input
-          placeholder="Paga (es. 10€/h)"
-          value={pay}
-          onChange={(e) => setPay(e.target.value)}
-          className="w-full p-3 rounded-xl border outline-none"
-        />
-
-        <button
-          onClick={handleSubmit}
-          className="w-full bg-blue-500 text-white py-3 mt-5 rounded-xl font-semibold"
-        >
-          Pubblica
-        </button>
+          <div className="grid grid-cols-2 gap-3">
+            <NativeSelect
+              label="Ora"
+              value={endTime.split(":")[0]}
+              onChange={(e) => setEndTime(`${e.currentTarget.value}:${endTime.split(":")[1]}`)}
+              data={HOURS}
+            />
+            <NativeSelect
+              label="Min"
+              value={endTime.split(":")[1]}
+              onChange={(e) => setEndTime(`${endTime.split(":")[0]}:${e.currentTarget.value}`)}
+              data={MINUTES}
+            />
+          </div>
+        </div>
       </div>
 
+      <input
+        placeholder="Ruolo (es. Cameriere)"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+        className="w-full p-3 rounded-xl border outline-none"
+      />
+
+      <input
+        placeholder="Luogo"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        className="w-full p-3 rounded-xl border outline-none"
+      />
+
+      <input
+        placeholder="Paga (es. 10€/h)"
+        value={pay}
+        onChange={(e) => setPay(e.target.value)}
+        className="w-full p-3 rounded-xl border outline-none"
+      />
+
+      <button
+        onClick={handleSubmit}
+        className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold"
+      >
+        Pubblica
+      </button>
+
       {jobs.length > 0 && (
-        <div className="mt-8">
-          <h3 className="font-bold mb-2 text-left">Lavori pubblicati</h3>
+        <div className="mt-6">
+          <h3 className="font-bold mb-2">Lavori pubblicati</h3>
           <ul className="space-y-2">
             {jobs.map((job) => (
-              <li key={job.id} className="bg-white p-3 rounded-xl shadow text-left">
+              <li key={job.id} className="bg-white p-3 rounded-xl shadow">
                 <div className="font-bold">{job.role}</div>
-                <div className="text-sm text-gray-500">{job.location} • {job.pay}</div>
+                <div className="text-sm text-gray-500">
+                  {job.location} • {job.pay}
+                </div>
               </li>
             ))}
           </ul>
@@ -239,308 +269,571 @@ function EmployerPanel({
   );
 }
 
+// -------------------------
+// HOME
+// -------------------------
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // AUTH + ROLE
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(null);
-  const [appliedJobs, setAppliedJobs] = useState<string[]>([]);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+
+  // DATA
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [appliedJobs, setAppliedJobs] = useState<string[]>([]);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [sessionChecked, setSessionChecked] = useState(false);
+const [hasSession, setHasSession] = useState(false);
+
+  // Spotlight search
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
-  // 🔹 Caricamento iniziale da localStorage
-  useEffect(() => {
-    const storedJobs = localStorage.getItem(STORAGE_KEYS.JOBS);
-    const storedApplied = localStorage.getItem(STORAGE_KEYS.APPLIED_JOBS);
-    const storedLogin = localStorage.getItem(STORAGE_KEYS.IS_LOGGED_IN);
-    const storedRole = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
-
-    if (storedJobs) setJobs(JSON.parse(storedJobs));
-    if (storedApplied) setAppliedJobs(JSON.parse(storedApplied));
-    if (storedLogin) setIsLoggedIn(storedLogin === "true");
-    if (storedRole) setUserRole(storedRole as UserRole);
-  }, []);
-
-  // 🔹 Login / Logout
-  const handleLogin = (role: UserRole) => {
-    setIsLoggedIn(true);
-    setUserRole(role);
-
-    localStorage.setItem(STORAGE_KEYS.IS_LOGGED_IN, "true");
-    localStorage.setItem(STORAGE_KEYS.USER_ROLE, role!);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUserRole(null);
-    setAppliedJobs(localStorage.getItem(STORAGE_KEYS.APPLIED_JOBS) ? JSON.parse(localStorage.getItem(STORAGE_KEYS.APPLIED_JOBS)!) : []);
-
-    localStorage.removeItem(STORAGE_KEYS.IS_LOGGED_IN);
-    localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
-    //localStorage.removeItem(STORAGE_KEYS.APPLIED_JOBS);
-  };
-
-  // 🔹 Selezione ruolo
-  const selectRole = (role: UserRole) => {
-    setUserRole(role);
-    localStorage.setItem(STORAGE_KEYS.USER_ROLE, role!);
-  };
-
-  // 🔹 Candidatura
-  const handleApply = (id: string) => {
-    if (appliedJobs.includes(id)) return;
-
-    const updated = [...appliedJobs, id];
-    setAppliedJobs(updated);
-    localStorage.setItem(STORAGE_KEYS.APPLIED_JOBS, JSON.stringify(updated));
-  };
-
-  // 🔹 Aggiunta offerta
-  const addJob = (job: Omit<Job, "id">) => {
-    const newJob: Job = { id: generateId(), ...job };
-    const updatedJobs = [newJob, ...jobs];
-    setJobs(updatedJobs);
-    localStorage.setItem(STORAGE_KEYS.JOBS, JSON.stringify(updatedJobs));
-  };
-
+  // Calendar (lasciato come nel tuo codice)
   const [selDay, setSelDay] = useState<Date | null>(new Date());
-  const [value, onChange] = useState<Date | null>(new Date());
-
-  // Responsive number of days shown in MiniCalendar based on window width
-  const computeNumberOfDays = (width: number) => {
-    const MIN = 6; // minimo giorni da mostrare
-    const MAX = 20; // massimo giorni da mostrare
-    const DAY_MIN_PX = 96; // larghezza stimata per ogni giorno (regola se necessario)
-
-    // riservo uno spazio per margini/controlli (es. 320px), poi calcolo quanti giorni ci stanno
-    const usable = Math.max(320, width) - 320;
-    const calculated = Math.floor(usable / DAY_MIN_PX);
-    const result = Math.max(MIN, Math.min(MAX, calculated || 7));
-    return result;
-  };
-
   const [numberOfDays, setNumberOfDays] = useState<number>(() => {
     if (typeof window === "undefined") return 7;
     return computeNumberOfDays(window.innerWidth);
   });
 
+const syncAppliedJobs = async () => {
+  try {
+    const ids = await getMyAppliedJobIds();
+    setAppliedJobs(ids);
+  } catch (e) {
+    console.error("syncAppliedJobs error:", e);
+    setAppliedJobs([]);
+  }
+};
+useEffect(() => {
+  let mounted = true;
+
+  (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!mounted) return;
+    if (!user) return;
+
+    await syncAppliedJobs();
+  })();
+
+  return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+useEffect(() => {
+  const handler = () => syncAppliedJobs();
+  window.addEventListener("applications-updated", handler);
+  return () => window.removeEventListener("applications-updated", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleResize = () => setNumberOfDays(computeNumberOfDays(window.innerWidth));
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+  let mounted = true;
+
+  (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!mounted) return;
+
+    if (user) {
+      // se sei worker, sincronizza candidature
+      await syncAppliedJobs();
+    } else {
+      setAppliedJobs([]);
+    }
+  })();
+
+  return () => { mounted = false; };
+}, []);
+
+  //bottom bar
+  useEffect(() => {
+  let mounted = true;
+
+  async function sync() {
+    const { data } = await supabase.auth.getSession();
+    if (!mounted) return;
+
+    const session = data.session;
+    setHasSession(!!session);
+    setSessionChecked(true);
+
+    if (!session) {
+      // ✅ sei loggato? no -> reset UI
+      setIsLoggedIn(false);
+      setUserRole(null);
+      setActiveTab("home");
+      setAppliedJobs([]);
+      setSelectedJob(null);
+    }
+  }
+
+  sync();
+
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!mounted) return;
+
+    setHasSession(!!session);
+    setSessionChecked(true);
+
+    if (!session) {
+      // ✅ logout -> reset UI e niente bottom bar
+      setIsLoggedIn(false);
+      setUserRole(null);
+      setActiveTab("home");
+      setAppliedJobs([]);
+      setSelectedJob(null);
+    }
+  });
+
+  return () => {
+    mounted = false;
+    sub.subscription.unsubscribe();
+  };
+}, []);
+
+  // -------------------------
+  // LOADERS (DB)
+  // -------------------------
+  async function loadJobsFromDb() {
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("id, role, location, pay, start_date, end_date")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("loadJobsFromDb error:", error);
+      return;
+    }
+
+    const mapped: Job[] =
+      (data ?? []).map((j: any) => ({
+        id: j.id,
+        role: j.role,
+        location: j.location,
+        pay: j.pay,
+        startDate: new Date(j.start_date),
+        endDate: new Date(j.end_date),
+      })) ?? [];
+
+    setJobs(mapped);
+  }
+
+  async function loadAppliedFromDb(userId: string) {
+    const { data, error } = await supabase
+      .from("applications")
+      .select("job_id")
+      .eq("worker_id", userId);
+
+    if (error) {
+      console.error("loadAppliedFromDb error:", error);
+      return;
+    }
+
+    setAppliedJobs((data ?? []).map((r: any) => r.job_id));
+  }
+
+  async function loadRoleFromDb(userId: string) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error("loadRoleFromDb error:", error);
+      setUserRole(null);
+      return;
+    }
+
+    setUserRole((data?.role as UserRole) ?? null);
+  }
+
+  // -------------------------
+  // INIT AUTH (NO LOCALSTORAGE)
+  // -------------------------
+useEffect(() => {
+  let mounted = true;
+
+  (async () => {
+    const { data } = await supabase.auth.getSession();
+
+    if (!mounted) return;
+
+    setHasSession(!!data.session);
+    setSessionChecked(true);
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function init() {
+      const { data } = await supabase.auth.getSession();
+      const sessionUser = data.session?.user ?? null;
+
+      if (!mounted) return;
+
+      if (!sessionUser) {
+        setIsLoggedIn(false);
+        setAuthUserId(null);
+        setUserRole(null);
+        setAppliedJobs([]);
+        setJobs([]);
+        return;
+      }
+
+      setIsLoggedIn(true);
+      setAuthUserId(sessionUser.id);
+
+      await loadRoleFromDb(sessionUser.id);
+      await loadJobsFromDb();
+      await loadAppliedFromDb(sessionUser.id);
+    }
+
+    init();
+
+    // ascolta login/logout
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null;
+
+      if (!mounted) return;
+
+      if (!u) {
+        setIsLoggedIn(false);
+        setAuthUserId(null);
+        setUserRole(null);
+        setAppliedJobs([]);
+        setJobs([]);
+        setSelectedJob(null);
+        setActiveTab("home");
+        return;
+      }
+
+      setIsLoggedIn(true);
+      setAuthUserId(u.id);
+
+      await loadRoleFromDb(u.id);
+      await loadJobsFromDb();
+      await loadAppliedFromDb(u.id);
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  return (
-    <main className="min-h-screen">
-      {/* HEADER */}
-      {isLoggedIn && (
-        <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-            <div>
-              <h1 className="text-3xl font-bold pointer">
-                extra<span className="text-emerald-500">Job</span>
-              </h1>
-              <p className="text-gray-600 text-sm">
-                Trova o offri lavoro extra, quando serve.
-              </p>
-            </div>
+  // responsive calendar
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setNumberOfDays(computeNumberOfDays(window.innerWidth));
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              {/* Input ricerca solo per lavoratori loggati */}
-              {/* SEARCH */}
-              {isLoggedIn && userRole === "worker" && (
-                <div className="relative">
-                  {/* Icona lente */}
-                  <button
-                    onClick={() => setIsSearchOpen(true)}
-                    className="p-2 rounded-full hover:bg-gray-100 transition"
-                  >
-                    <span className="material-symbols-outlined text-xl">search</span>
-                  </button>
+  // close spotlight when tab changes
+  useEffect(() => {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+  }, [activeTab]);
 
-                  {/* Overlay stile Spotlight */}
-                  {isSearchOpen && (
-                    <div
-                      className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-start justify-center pt-32"
-                      onClick={() => setIsSearchOpen(false)}
-                    >
-                      <div
-                        className="w-[90%] max-w-xl"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {/* INPUT */}
-                        <div className="flex justify-center mb-2">
-  <div className="w-10 h-1.5 rounded-full bg-gray-300" />
-</div>
+  // open spotlight if ?search=1
+  useEffect(() => {
+    const shouldOpen = searchParams.get("search") === "1";
+    if (shouldOpen) setIsSearchOpen(true);
+  }, [searchParams]);
 
-                        <div className="bg-white rounded-2xl shadow-2xl px-5 py-4 animate-spotlight"
-                          onTouchStart={(e) => {
-    setTouchStartY(e.touches[0].clientY);
-  }}
-  onTouchMove={(e) => {
-    if (touchStartY === null) return;
-
-    const diff = e.touches[0].clientY - touchStartY;
-
-    // swipe down > 80px → chiudi spotlight
-    if (diff > 80) {
-      setIsSearchOpen(false);
-      setTouchStartY(null);
+  // redirect employer (DB role)
+  useEffect(() => {
+    if (isLoggedIn && userRole === "employer") {
+      router.replace("/employer");
     }
-  }}
-  onTouchEnd={() => setTouchStartY(null)}>
-                          <input
-                            autoFocus
-                            type="text"
-                            placeholder="Cerca lavoro o città…"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") setIsSearchOpen(false);
-                            }}
-                            className="w-full text-lg outline-none"
-                          />
-                        </div>
+  }, [isLoggedIn, userRole, router]);
 
-                        {/* RISULTATI */}
-                        {searchQuery.trim() !== "" && (
-                          <div className="mt-3 bg-white rounded-2xl shadow-xl overflow-hidden animate-spotlight">
-                            {jobs.filter(
-                              (job) =>
-                                job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                job.location.toLowerCase().includes(searchQuery.toLowerCase())
-                            ).length === 0 ? (
-                              <p className="p-4 text-sm text-gray-500">
-                                Nessun risultato
-                              </p>
-                            ) : (
-                              jobs
-                                .filter(
-                                  (job) =>
-                                    job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                    job.location.toLowerCase().includes(searchQuery.toLowerCase())
-                                )
-                                .slice(0, 5)
-                                .map((job) => (
-                                  <button
-                                    key={job.id}
-                                    className="w-full text-left px-4 py-3 hover:bg-gray-100 transition"
-                                    onClick={() => {
-                                      setIsSearchOpen(false);
-                                      setSearchQuery("");
-                                      // qui potrai navigare o scrollare al job
-                                    }}
-                                  >
-                                    <div className="font-semibold">
-                                      {job.role}
-                                    </div>
-                                    <div className="text-sm text-gray-500">
-                                      {job.location} • {job.pay}
-                                    </div>
-                                  </button>
-                                ))
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+  // -------------------------
+  // ACTIONS (DB)
+  // -------------------------
+  function handleLogin(_role: "worker" | "employer") {
+    // Non settiamo più localStorage.
+    // Il vero “logged” arriva da onAuthStateChange sopra.
+  }
 
-                </div>
-              )}
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.replace("/"); // niente /login (eviti 404)
+  }
 
-              <div className="flex gap-2">
-                {isLoggedIn && (
-                  <button
-                    onClick={isLoggedIn ? handleLogout : () => handleLogin("worker")}
-                    className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-semibold"
-                  >
-                    {isLoggedIn ? "Esci" : "Accedi"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-      {/* 🔐 SE NON LOGGATO */}
-      {!isLoggedIn && (
-        <div className="p-5">
+const handleApply = async (jobId: string) => {
+  const {
+    data: { user },
+    error: uErr,
+  } = await supabase.auth.getUser();
+
+  if (uErr) {
+    console.error(uErr);
+    return;
+  }
+
+  if (!user) {
+    alert("Devi essere loggato");
+    return;
+  }
+
+  // ✅ inserisce candidatura nel DB
+  const { error } = await supabase
+    .from("applications")
+    .insert({
+      worker_id: user.id,
+      job_id: jobId,
+      status: "applied",
+    });
+
+  // evita errore se già candidato
+  // @ts-ignore
+  if (error && error.code !== "23505") {
+    console.error(error);
+    alert("Errore candidatura");
+    return;
+  }
+
+  // aggiorna UI locale
+  setAppliedJobs((prev) => [...prev, jobId]);
+
+  // notifica ApplicationsPage
+  window.dispatchEvent(new Event("applications-updated"));
+};
+
+const handleWithdraw = async (jobId: string) => {
+  try {
+    await withdrawApplication(jobId);
+    await syncAppliedJobs(); // ✅ torna “Candidati”
+    window.dispatchEvent(new Event("applications-updated"));
+  } catch (e: any) {
+    alert(e?.message ?? "Errore annullamento candidatura");
+  }
+};
+
+  const addJob = async (job: Omit<Job, "id">) => {
+    // solo employer loggato
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth.user;
+    if (!user) return;
+
+    const payload = {
+      employer_id: user.id,
+      role: job.role,
+      location: job.location,
+      pay: job.pay,
+      start_date: job.startDate.toISOString(),
+      end_date: job.endDate.toISOString(),
+    };
+
+    const { error } = await supabase.from("jobs").insert(payload);
+
+    if (error) {
+      console.error("addJob error:", error);
+      alert("Errore pubblicazione lavoro");
+      return;
+    }
+
+    await loadJobsFromDb();
+  };
+
+  function openSearch() {
+    setIsSearchOpen(true);
+    setSearchQuery("");
+  }
+
+  // -------------------------
+  // RENDER HOME TAB (UI IDENTICA)
+  // -------------------------
+  const renderHome = () => {
+    if (!isLoggedIn) {
+      return (
+        <div className="p-2">
           <Login onLogin={handleLogin} />
         </div>
-      )}
+      );
+    }
 
-      {/* 👤 SCELTA RUOLO */}
-      {isLoggedIn && !userRole && (
-        <div className="p-5 space-y-4">
-          <h2 className="text-xl font-bold text-center">Chi sei?</h2>
-
-          <button
-            onClick={() => selectRole("worker")}
-            className="w-full bg-emerald-500 text-white py-3 rounded-xl font-semibold"
-          >
-            👷‍♂️ Cerco lavoro extra
-          </button>
-
-          <button
-            onClick={() => selectRole("employer")}
-            className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold"
-          >
-            🏢 Cerco personale
-          </button>
+    // se loggato ma role non caricato ancora
+    if (isLoggedIn && !userRole) {
+      return (
+        <div className="p-4 space-y-4">
+          <h2 className="text-xl font-bold text-center">Caricamento profilo…</h2>
         </div>
-      )}
-      {isLoggedIn && userRole === "worker" && (
-        <MiniCalendar
-          value={selDay}
-          onChange={(e) => {
-            setSelDay(new Date(e?.toString() || ""));
-            console.log('Giorno selezionato:', e);
-          }}
-          numberOfDays={numberOfDays}
-          className="mx-auto my-4"
-        />
-      )}
-      {/* 👷‍♂️ LAVORATORE */}
-      {isLoggedIn && userRole === "worker" && (
+      );
+    }
 
-        <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(100vh-150px)] overscroll-contain">
-          {jobs.filter(
+    // worker
+    if (isLoggedIn && userRole === "worker") {
+      const q = searchQuery.trim().toLowerCase();
+      const filtered = q
+        ? jobs.filter(
             (job) =>
-              job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              job.location.toLowerCase().includes(searchQuery.toLowerCase())
-          ).length === 0 ? (
-            <p className="text-center text-gray-500">
-              Nessuna offerta disponibile
-            </p>
-          ) : (
-            jobs
-              .filter(
-                (job) =>
-                  job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  job.location.toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map((job) => (
-                <JobCard
-                  key={job.id}
-                  {...job}
-                  isLoggedIn={isLoggedIn}
-                  appliedJobs={appliedJobs}
-                  onApply={handleApply}
-                />
+              job.role.toLowerCase().includes(q) ||
+              job.location.toLowerCase().includes(q)
+          )
+        : jobs;
+
+      return (
+        <>
+          <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh)] overscroll-contain">
+            {filtered.length === 0 ? (
+              <p className="text-center text-gray-500">Nessuna offerta disponibile</p>
+            ) : (
+              filtered.map((job) => (
+                <div key={job.id} onClick={() => setSelectedJob(job)} className="cursor-pointer">
+                  <JobCard
+                    {...job}
+                    isLoggedIn={isLoggedIn}
+                    appliedJobs={appliedJobs}
+                    onApply={handleApply}
+                  />
+                </div>
               ))
-          )}
+            )}
+          </div>
+        </>
+      );
+    }
+
+    // employer (questa parte teoricamente non la vedi perché redirect /employer)
+    if (isLoggedIn && userRole === "employer") {
+      return (
+        <div className="p-5">
+          <EmployerPanel jobs={jobs} onAddJob={addJob} />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // -------------------------
+  // MAIN RENDER (UI IDENTICA)
+  // -------------------------
+  return (
+    <main className="min-h-screen bg-slate-100">
+      {isLoggedIn && (
+        <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
+          <h1 className="text-3xl font-bold pointer">
+            extra<span className="text-emerald-500">Job</span>
+          </h1>
+        </header>
+      )}
+
+      {activeTab === "home" && renderHome()}
+      {isLoggedIn && activeTab === "applications" && <ApplicationsPage />}
+      {isLoggedIn && activeTab === "profile" && <ProfilePage />}
+
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-start justify-center pt-32"
+          onClick={() => setIsSearchOpen(false)}
+        >
+          <div className="w-[90%] max-w-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center mb-2">
+              <div className="w-10 h-1.5 rounded-full bg-gray-300" />
+            </div>
+
+            <div
+              className="bg-white rounded-2xl shadow-2xl px-5 py-4"
+              onTouchStart={(e) => setTouchStartY(e.touches[0].clientY)}
+              onTouchMove={(e) => {
+                if (touchStartY === null) return;
+                const diff = e.touches[0].clientY - touchStartY;
+                if (diff > 80) {
+                  setIsSearchOpen(false);
+                  setTouchStartY(null);
+                }
+              }}
+              onTouchEnd={() => setTouchStartY(null)}
+            >
+              <input
+                autoFocus
+                type="text"
+                placeholder="Cerca lavoro o città…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setIsSearchOpen(false);
+                }}
+                className="w-full text-lg outline-none"
+              />
+            </div>
+
+            {searchQuery.trim() !== "" && (
+              <div className="mt-3 bg-white rounded-2xl shadow-xl overflow-hidden">
+                {jobs.filter(
+                  (job) =>
+                    job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    job.location.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 ? (
+                  <p className="p-4 text-sm text-gray-500">Nessun risultato</p>
+                ) : (
+                  jobs
+                    .filter(
+                      (job) =>
+                        job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        job.location.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map((job) => (
+                      <button
+                        key={job.id}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-100 transition"
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                          setSelectedJob(job);
+                        }}
+                      >
+                        <div className="font-semibold">{job.role}</div>
+                        <div className="text-sm text-gray-500">
+                          {job.location} • {job.pay}
+                        </div>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* 🏢 DATORE */}
-      {isLoggedIn && userRole === "employer" && (
-        <div className="p-5 text-center text-gray-600">
-          <EmployerPanel jobs={jobs} addJob={addJob} />
-        </div>
-      )}
+<JobDetailsSheet
+  job={selectedJob}
+  onClose={() => setSelectedJob(null)}
+  applied={selectedJob ? appliedJobs.includes(selectedJob.id) : false}
+  onApply={(id) => handleApply(id)}
+  onWithdraw={async (id) => {
+    // ✅ subito UI
+    setAppliedJobs((prev) => prev.filter((x) => x !== id));
+
+    // ✅ riallinea dal DB
+    await syncAppliedJobs();
+  }}
+/>
+      {sessionChecked && hasSession && userRole === "worker" && (
+  <BottomBar
+    activeTab={activeTab}
+    onChange={(t) => setActiveTab(t)}
+    onSearch={() => setIsSearchOpen(true)}
+    onBackHome={() => setActiveTab("home")}
+  />
+)}
     </main>
   );
 }

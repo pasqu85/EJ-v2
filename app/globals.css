@@ -6,6 +6,12 @@
   --foreground: #171717;
 }
 
+main.min-h-screen.sticky.top-0.z-50.bg-white\/80.backdrop-blur-lg.background-color\:\#f1f5f9 {
+  background-color: #f1f5f9 !important;
+}
+
+
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -18,6 +24,18 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+}
+
+.no-context-menu {
+  -webkit-touch-callout: none; /* iOS */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+
+.h-56 {
+  height: calc(var(--spacing) * 56);
 }
 
 body {
@@ -37,15 +55,16 @@ body {
 }
 
 body .collapse {
-    visibility: visible;
+  visibility: visible;
 }
 
 .full-width {
-    width: 100%;
+  width: 100%;
 }
 
-body button, body button.bg-green-500 {
-    color: #333!important;
+body button,
+body button.bg-green-500 {
+  color: #333 !important;
 }
 
 @keyframes spotlight {
@@ -53,6 +72,7 @@ body button, body button.bg-green-500 {
     transform: scale(0.95) translateY(-10px);
     opacity: 0;
   }
+
   to {
     transform: scale(1) translateY(0);
     opacity: 1;
@@ -64,57 +84,62 @@ body button, body button.bg-green-500 {
 }
 
 .mantine-Input-input {
-    border: 0px solid;
-    background: transparent;
-    padding: 0;
+  border: 0px solid;
+  background: transparent;
+  padding: 0;
 }
 
 div.border.mantine-DateTimePicker-root {
-  padding-top: 10px!important;
+  padding-top: 10px !important;
   padding-bottom: 10px !important;
 }
 
 .price {
-    font-size: 3em;
+  font-size: 3em;
 }
 
 
 .action-button {
-text-align: center;
-    border-radius: 50px;
-    width: 80px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  text-align: center;
+  border-radius: 50px;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 .action-button.text-white {
-  color: white!important;
+  color: white !important;
 }
+
 .action-button.text-white svg {
   color: white;
 }
-.action-button svg{
-    width: 60px;
-    height: 60px
+
+.action-button svg {
+  width: 60px;
+  height: 60px
 }
+
 .show-mobile {
-    display: none!important;
+  display: none !important;
 }
 
 @media (max-width: 768px) {
   .action-button {
     border-radius: 15px;
     width: 100%;
-    height: initial!important;
+    height: initial !important;
     padding: 10px;
   }
-  .action-button svg{
+
+  .action-button svg {
     width: 40px;
     height: 40px;
   }
 
-  .icon svg{
+  .icon svg {
     position: absolute;
     left: -20px;
     top: 50%;
@@ -124,9 +149,13 @@ text-align: center;
     border-radius: 50%;
     transform: translateY(-50%);
   }
+
   .show-mobile {
     display: block !important;
   }
 
-}
+  .h-42 {
+    height: calc(var(--spacing) * 42);
+  }
 
+}

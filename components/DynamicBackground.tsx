@@ -12,7 +12,7 @@ const DynamicBackground = () => {
   const triangleY = useTransform(scrollYProgress, [0, 1], ["0%", "-30%"]);
 
   return (
-    <div className="fixed inset-0 -z-50 overflow-hidden bg-[#fafaf9] pointer-events-none">
+    <div className="fixed inset-0 -z-50 overflow-hidden bg-[#f1f5f9] pointer-events-none">
       
       {/* Cerchio Pastello - Alto Sinistra */}
       <motion.div
