@@ -3,35 +3,70 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 
-export function useAuthUser() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export type UserRole = "worker" | "employer";
+
+export type Profile = {
+  id: string;
+  role: UserRole;
+  name: string | null;
+  surname: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+};
+
+export function useAuthProfile() {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
 
-    async function load() {
-      const { data } = await supabase.auth.getUser();
+    const bootstrap = async () => {
+      setLoadingProfile(true);
 
-      if (!mounted) return;
+      const { data } = await supabase.auth.getSession();
+      const sessionUser = data.session?.user ?? null;
 
-      setUser(data.user ?? null);
-      setLoading(false);
-    }
+      if (!alive) return;
 
-    load();
+      setUserId(sessionUser?.id ?? null);
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_, session) => {
-        setUser(session?.user ?? null);
+      if (!sessionUser) {
+        setProfile(null);
+        setLoadingProfile(false);
+        return;
       }
-    );
+
+      const { data: prof, error } = await supabase
+        .from("profiles")
+        .select("id, role, name, surname, phone, avatar_url")
+        .eq("id", sessionUser.id)
+        .single();
+
+      if (!alive) return;
+
+      if (error) {
+        console.error("profile load error:", error);
+        setProfile(null);
+      } else {
+        setProfile((prof as Profile) ?? null);
+      }
+
+      setLoadingProfile(false);
+    };
+
+    bootstrap();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      bootstrap();
+    });
 
     return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
+      alive = false;
+      sub.subscription.unsubscribe();
     };
   }, []);
 
-  return { user, loading };
+  return { userId, profile, loadingProfile };
 }

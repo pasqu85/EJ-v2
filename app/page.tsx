@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
+import { IconBriefcase, IconBuildingStore, IconChevronRight } from "@tabler/icons-react";
 
 import Login from "../components/Login";
 import JobCard from "../components/JobCard";
@@ -226,26 +228,26 @@ function EmployerPanel({
         placeholder="Ruolo (es. Cameriere)"
         value={role}
         onChange={(e) => setRole(e.target.value)}
-        className="w-full p-3 rounded-xl border outline-none"
+        className="w-full p-3 !rounded-xl border outline-none"
       />
 
       <input
         placeholder="Luogo"
         value={location}
         onChange={(e) => setLocation(e.target.value)}
-        className="w-full p-3 rounded-xl border outline-none"
+        className="w-full p-3 !rounded-xl border outline-none"
       />
 
       <input
         placeholder="Paga (es. 10€/h)"
         value={pay}
         onChange={(e) => setPay(e.target.value)}
-        className="w-full p-3 rounded-xl border outline-none"
+        className="w-full p-3 !rounded-xl border outline-none"
       />
 
       <button
         onClick={handleSubmit}
-        className="w-full bg-blue-500 text-white py-3 rounded-xl font-semibold"
+        className="w-full bg-blue-500 text-white py-3 !rounded-xl font-semibold"
       >
         Pubblica
       </button>
@@ -255,7 +257,7 @@ function EmployerPanel({
           <h3 className="font-bold mb-2">Lavori pubblicati</h3>
           <ul className="space-y-2">
             {jobs.map((job) => (
-              <li key={job.id} className="bg-white p-3 rounded-xl shadow">
+              <li key={job.id} className="bg-white p-3 !rounded-xl shadow">
                 <div className="font-bold">{job.role}</div>
                 <div className="text-sm text-gray-500">
                   {job.location} • {job.pay}
@@ -302,6 +304,10 @@ const [hasSession, setHasSession] = useState(false);
     return computeNumberOfDays(window.innerWidth);
   });
 
+  type EntryChoice = "worker" | "employer" | null;
+
+const [entryChoice, setEntryChoice] = useState<EntryChoice>(null);
+
 const syncAppliedJobs = async () => {
   try {
     const ids = await getMyAppliedJobIds();
@@ -324,6 +330,26 @@ useEffect(() => {
 
   return () => { mounted = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+useEffect(() => {
+  const onJobs = () => loadJobsFromDb();
+  const onApps = async () => {
+    try {
+      const ids = await getMyAppliedJobIds();
+      setAppliedJobs(ids);
+    } catch {
+      setAppliedJobs([]);
+    }
+  };
+
+  window.addEventListener("jobs-updated", onJobs);
+  window.addEventListener("applications-updated", onApps);
+
+  return () => {
+    window.removeEventListener("jobs-updated", onJobs);
+    window.removeEventListener("applications-updated", onApps);
+  };
 }, []);
 
 useEffect(() => {
@@ -506,6 +532,22 @@ useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
 
+      // ✅ Se torno da Google, applico il ruolo scelto prima del redirect
+if (session?.user) {
+  const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
+    | "worker"
+    | "employer"
+    | null;
+
+  if (pendingRole) {
+    await supabase
+      .from("profiles")
+      .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
+
+    localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
+  }
+}
+
       if (!mounted) return;
 
       if (!u) {
@@ -607,6 +649,21 @@ const handleApply = async (jobId: string) => {
     return;
   }
 
+  await supabase
+  .from("applications")
+  .insert({
+    worker_id: user.id,
+    job_id: jobId,
+    status: "applied",
+  });
+
+// ✅ manda email al datore
+await fetch("/api/send-application-email", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ jobId }),
+});
+
   // aggiorna UI locale
   setAppliedJobs((prev) => [...prev, jobId]);
 
@@ -658,23 +715,110 @@ const handleWithdraw = async (jobId: string) => {
   // -------------------------
   // RENDER HOME TAB (UI IDENTICA)
   // -------------------------
-  const renderHome = () => {
-    if (!isLoggedIn) {
-      return (
-        <div className="p-2">
-          <Login onLogin={handleLogin} />
-        </div>
-      );
+const renderHome = () => {
+  // ✅ NON LOGGATO: welcome -> scelta -> login
+  if (!isLoggedIn) {
+    // STEP 1: scelta
+    if (!entryChoice) {
+return (
+  <div className="min-h-[85vh] flex items-center justify-center p-6 bg-slate-50/50">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full max-w-md space-y-8"
+    >
+      {/* Testata della Welcome */}
+      <div className="text-center space-y-2">
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+          extra<span className="text-emerald-500">Job</span>
+        </h1>
+        <p className="text-slate-500 font-medium">
+          La tua prossima opportunità inizia qui. <br />
+          Scegli come vuoi procedere:
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {/* OPZIONE WORKER */}
+        <button
+          onClick={() => setEntryChoice("worker")}
+          className="group relative w-full flex items-center gap-4 p-5 mb-4 !rounded-[28px] border-2 border-transparent hover:border-emerald-500 shadow-xl shadow-slate-200/50 transition-all active:scale-[0.98]"
+        >
+          <div className="flex-shrink-0 w-14 h-14 !rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <IconBriefcase size={30} stroke={2} />
+          </div>
+          
+          <div className="flex-grow text-left">
+            <div className="text-lg font-black text-slate-800 leading-tight">Cerco Lavoro</div>
+            <div className="text-xs text-slate-500 font-medium">Trova extra e turni subito</div>
+          </div>
+
+          <div className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all">
+            <IconChevronRight size={24} stroke={3} />
+          </div>
+        </button>
+
+        {/* OPZIONE EMPLOYER */}
+        <button
+          onClick={() => setEntryChoice("employer")}
+          className="group relative w-full flex items-center gap-4 p-5 !rounded-[28px] border-2 border-transparent hover:border-blue-500 shadow-xl shadow-slate-200/50 transition-all active:scale-[0.98]"
+        >
+          <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <IconBuildingStore size={30} stroke={2} />
+          </div>
+          
+          <div className="flex-grow text-left">
+            <div className="text-lg font-black text-slate-800 leading-tight">Offro Lavoro</div>
+            <div className="text-xs text-slate-500 font-medium">Pubblica annunci e trova staff</div>
+          </div>
+
+          <div className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
+            <IconChevronRight size={24} stroke={3} />
+          </div>
+        </button>
+      </div>
+
+      <div className="text-center pt-4">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+          Semplice • Veloce • Trasparente
+        </p>
+      </div>
+    </motion.div>
+  </div>
+);
     }
 
-    // se loggato ma role non caricato ancora
-    if (isLoggedIn && !userRole) {
-      return (
-        <div className="p-4 space-y-4">
-          <h2 className="text-xl font-bold text-center">Caricamento profilo…</h2>
+    // STEP 2: login con ruolo pre-selezionato
+    const isEmployer = entryChoice === "employer";
+
+    return (
+      <div className="p-2">
+        <div className="max-w-md mx-auto mb-3">
+          <button
+            onClick={() => setEntryChoice(null)}
+            className="text-sm px-4 py-2 !rounded-full bg-white border shadow-sm"
+          >
+            ← Indietro
+          </button>
         </div>
-      );
-    }
+
+        <Login
+          onLogin={handleLogin}
+          defaultRole={isEmployer ? "employer" : "worker"}
+          lockRole
+        />
+      </div>
+    );
+  }
+
+  // ✅ LOGGATO ma role non ancora arrivato
+  if (isLoggedIn && !userRole) {
+    return (
+      <div className="p-4 space-y-4">
+        <h2 className="text-xl font-bold text-center">Caricamento profilo…</h2>
+      </div>
+    );
+  }
 
     // worker
     if (isLoggedIn && userRole === "worker") {
@@ -745,11 +889,11 @@ const handleWithdraw = async (jobId: string) => {
         >
           <div className="w-[90%] max-w-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-center mb-2">
-              <div className="w-10 h-1.5 rounded-full bg-gray-300" />
+              <div className="w-10 h-1.5 !rounded-full bg-gray-300" />
             </div>
 
             <div
-              className="bg-white rounded-2xl shadow-2xl px-5 py-4"
+              className="bg-white !rounded-2xl shadow-2xl px-5 py-4"
               onTouchStart={(e) => setTouchStartY(e.touches[0].clientY)}
               onTouchMove={(e) => {
                 if (touchStartY === null) return;
@@ -775,7 +919,7 @@ const handleWithdraw = async (jobId: string) => {
             </div>
 
             {searchQuery.trim() !== "" && (
-              <div className="mt-3 bg-white rounded-2xl shadow-xl overflow-hidden">
+              <div className="mt-3 bg-white !rounded-2xl shadow-xl overflow-hidden">
                 {jobs.filter(
                   (job) =>
                     job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -793,7 +937,7 @@ const handleWithdraw = async (jobId: string) => {
                     .map((job) => (
                       <button
                         key={job.id}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-100 transition"
+                        className="w-full text-left px-4 py-3 !hover:bg-gray-100 transition"
                         onClick={() => {
                           setIsSearchOpen(false);
                           setSearchQuery("");

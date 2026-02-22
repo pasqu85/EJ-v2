@@ -5,6 +5,7 @@ import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "./globals.css";
 import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 import DynamicBackground from "../components/DynamicBackground";
 import MantineProviderClient from "../components/MantineProviderClient";

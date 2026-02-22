@@ -89,24 +89,24 @@ export default function EmployerProfilePage() {
     };
   }, [router]);
 
-const handleLogout = async () => {
-  localStorage.clear(); // puoi tenerlo finché usi legacy
-  await supabase.auth.signOut();
+  const handleLogout = async () => {
+    localStorage.clear(); // puoi tenerlo finché usi legacy
+    await supabase.auth.signOut();
 
-  // se vuoi pulire cose vecchie UI (facoltativo)
-  localStorage.removeItem(STORAGE_KEYS.IS_LOGGED_IN);
-  localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
-  localStorage.removeItem(STORAGE_KEYS.APPLIED_JOBS);
+    // se vuoi pulire cose vecchie UI (facoltativo)
+    localStorage.removeItem(STORAGE_KEYS.IS_LOGGED_IN);
+    localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
+    localStorage.removeItem(STORAGE_KEYS.APPLIED_JOBS);
+    {
+      loading && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50
+                  px-4 py-2 rounded-full bg-white shadow border text-sm">
+          Caricamento profilo…
+        </div>
+      )
+    }
+  };
 
-};
-
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        Caricamento profilo…
-      </div>
-    );
-  }
 
   if (!user) return null;
 
