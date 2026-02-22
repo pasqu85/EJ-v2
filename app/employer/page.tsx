@@ -54,12 +54,14 @@ function combineDayAndTime(day: Date, hhmm: string) {
   return out;
 }
 
-function openTimePicker(ref: React.RefObject<HTMLInputElement>) {
+function openTimePicker(ref: React.RefObject<HTMLInputElement | null>) {
   const el = ref.current;
   if (!el) return;
-  // @ts-ignore
-  if (typeof el.showPicker === "function") el.showPicker();
-  else el.click();
+  if ("showPicker" in el && typeof (el as any).showPicker === "function") {
+    (el as any).showPicker();
+  } else {
+    el.click();
+  }
 }
 
 function formatHHMM(d: Date) {
@@ -208,11 +210,10 @@ function EmployerPanel({
                 setUseBusiness(next);
                 if (next && selectedBusiness) setLocation(selectedBusiness.address);
               }}
-              className={`px-3 py-2 !rounded-full text-sm font-semibold border transition ${
-                useBusiness
+              className={`px-3 py-2 !rounded-full text-sm font-semibold border transition ${useBusiness
                   ? "bg-linear-to-r from-blue-500 to-cyan-500 text-white border-blue-400"
                   : "bg-white text-slate-700 border-slate-200"
-              }`}
+                }`}
             >
               {useBusiness ? "Usata" : "Usa"}
             </button>
@@ -233,9 +234,8 @@ function EmployerPanel({
                     setSelectedBusinessId(b.id);
                     if (useBusiness) setLocation(b.address);
                   }}
-                  className={`relative overflow-hidden snap-center shrink-0 w-[88%] sm:w-[420px] text-left !rounded-3xl border transition-all duration-200 ${
-                    active ? "border-blue-400" : "border-white/40"
-                  }`}
+                  className={`relative overflow-hidden snap-center shrink-0 w-[88%] sm:w-[420px] text-left !rounded-3xl border transition-all duration-200 ${active ? "border-blue-400" : "border-white/40"
+                    }`}
                 >
                   <div
                     className="absolute inset-0 z-0"
@@ -324,14 +324,14 @@ function EmployerPanel({
       {/* DATE + TIME */}
       <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 mt-2">
         <div className="space-y-2">
-          <DatePickerInput
-            label="Data inizio"
-            variant="filled"
-            radius="xl"
-            dropdownType="modal"
-            value={startDay}
-            onChange={setStartDay}
-          />
+<DatePickerInput
+  label="Data inizio"
+  variant="filled"
+  radius="xl"
+  dropdownType="modal"
+  value={startDay}
+  onChange={(v) => setStartDay(v as unknown as Date | null)}
+/>
           <button
             type="button"
             onClick={() => openTimePicker(startTimeRef)}
@@ -365,15 +365,15 @@ function EmployerPanel({
         </div>
 
         <div className="space-y-2">
-          <DatePickerInput
-            label="Data fine"
-            variant="filled"
-            radius="xl"
-            dropdownType="modal"
-            value={endDay}
-            onChange={setEndDay}
-            minDate={startDay ?? undefined}
-          />
+<DatePickerInput
+  label="Data fine"
+  variant="filled"
+  radius="xl"
+  dropdownType="modal"
+  value={endDay}
+  onChange={(v) => setEndDay(v as unknown as Date | null)}
+  minDate={startDay ?? undefined}
+/>
           <button
             type="button"
             onClick={() => openTimePicker(endTimeRef)}
@@ -419,9 +419,8 @@ function EmployerPanel({
         value={location}
         onChange={(e) => setLocation(e.target.value)}
         disabled={!!selectedBusiness && useBusiness}
-        className={`w-full p-3 !rounded-xl border mt-2 ${
-          selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
-        }`}
+        className={`w-full p-3 !rounded-xl border mt-2 ${selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
+          }`}
       />
       <input
         placeholder="Paga (es. 10€/h)"
