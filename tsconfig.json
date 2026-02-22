@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -31,5 +30,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "supabase/functions/**"
+  ]
 }

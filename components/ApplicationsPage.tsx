@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import JobDetailsSheet from "@/components/JobDetailsSheet";
-import { 
-  IconChevronLeft, 
-  IconBriefcase, 
-  IconMapPin, 
-  IconCalendarEvent, 
+import {
+  IconChevronLeft,
+  IconBriefcase,
+  IconMapPin,
+  IconCalendarEvent,
   IconLoader2,
   IconInbox
 } from "@tabler/icons-react";
@@ -23,12 +23,22 @@ type Job = {
   notes?: string;
 };
 
+type JobRow = {
+  id: string;
+  role: string;
+  location: string;
+  pay: string;
+  start_date: string;
+  end_date: string;
+  business_name?: string | null;
+  business_address?: string | null;
+};
+
 type ApplicationRow = {
   id: string;
   job_id: string;
-  status: string | null;
   created_at: string;
-  jobs: {
+  job: {
     id: string;
     role: string;
     location: string;
@@ -41,15 +51,16 @@ type ApplicationRow = {
 };
 
 function toJob(app: ApplicationRow): Job | null {
-  if (!app.jobs) return null;
+  if (!app.job) return null;
+
   return {
-    id: app.jobs.id,
-    role: app.jobs.role,
-    location: app.jobs.business_address || app.jobs.location,
-    pay: app.jobs.pay,
-    startDate: new Date(app.jobs.start_date),
-    endDate: new Date(app.jobs.end_date),
-    notes: app.jobs.business_name ? `Attività: ${app.jobs.business_name}` : undefined,
+    id: app.job.id,
+    role: app.job.role,
+    location: app.job.business_address || app.job.location,
+    pay: app.job.pay,
+    startDate: new Date(app.job.start_date),
+    endDate: new Date(app.job.end_date),
+    notes: app.job.business_name ? `Attività: ${app.job.business_name}` : undefined,
   };
 }
 
@@ -78,21 +89,33 @@ export default function ApplicationsPage() {
 
       const { data, error } = await supabase
         .from("applications")
-        .select(`
-          id, job_id, status, created_at,
-          jobs:jobs ( id, role, location, pay, start_date, end_date, business_name, business_address )
-        `)
+        .select(
+          `
+    id,
+    job_id,
+    created_at,
+    job:jobs!applications_job_id_fkey (
+      id,
+      role,
+      location,
+      pay,
+      start_date,
+      end_date,
+      business_name,
+      business_address
+    )
+  `
+        )
         .eq("worker_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       if (!aliveRef.current) return;
 
-      const safe = (data ?? []) as ApplicationRow[];
-      const filtered = safe.filter((a) => (a.status ?? "").toLowerCase() !== "withdrawn");
-
-      setApps(filtered);
+      const safe = (data ?? []) as unknown as ApplicationRow[];
+      setApps(safe);
       setLoading(false);
+      
     } catch (e) {
       console.error(e);
       if (aliveRef.current) setLoading(false);
@@ -112,20 +135,21 @@ export default function ApplicationsPage() {
     };
   }, []);
 
-  const jobsData = useMemo(() => {
-    return apps.map(app => ({
+const jobsData = useMemo(() => {
+  return apps
+    .map((app) => ({
       job: toJob(app),
-      status: app.status,
-      appliedAt: new Date(app.created_at)
-    })).filter(item => item.job !== null);
-  }, [apps]);
+      appliedAt: new Date(app.created_at),
+    }))
+    .filter((item): item is { job: Job; appliedAt: Date } => item.job !== null);
+}, [apps]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-24">
       {/* HEADER DINAMICO */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-10 px-4 py-4">
         <div className="max-w-xl mx-auto flex items-center justify-between">
-          <button 
+          <button
             onClick={() => router.back()}
             className="p-2 -ml-2 !rounded-full hover:bg-slate-50 text-slate-400 transition"
           >
@@ -151,7 +175,7 @@ export default function ApplicationsPage() {
               <p className="font-bold text-slate-800 text-lg">Ancora nulla qui</p>
               <p className="text-sm text-slate-500">Inizia a candidarti per visualizzare i tuoi progressi.</p>
             </div>
-            <button 
+            <button
               onClick={() => router.push('/')}
               className="mt-2 bg-emerald-500 text-white px-6 py-2.5 !rounded-full font-bold text-sm shadow-lg shadow-emerald-100 mb-4"
             >
@@ -160,7 +184,7 @@ export default function ApplicationsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {jobsData.map(({ job, status, appliedAt }) => (
+            {jobsData.map(({ job, appliedAt }) => (
               <button
                 key={job!.id}
                 onClick={() => setSelectedJob(job)}
@@ -170,12 +194,9 @@ export default function ApplicationsPage() {
                   <div className="w-12 h-12 !rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                     <IconBriefcase size={22} stroke={2.5} />
                   </div>
-                  <div className={`px-3 py-1.5 !rounded-full text-[10px] font-black uppercase tracking-wider ${
-                    status === 'pending' || !status ? 'bg-amber-50 text-amber-600' : 
-                    status === 'accepted' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {status || 'Inviata'}
-                  </div>
+<div className="px-3 py-1.5 !rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-600">
+  Inviata
+</div>
                 </div>
 
                 <div className="space-y-1">
@@ -203,10 +224,10 @@ export default function ApplicationsPage() {
         )}
       </div>
 
-      <JobDetailsSheet 
-        job={selectedJob} 
-        onClose={() => setSelectedJob(null)} 
-        applied 
+      <JobDetailsSheet
+        job={selectedJob}
+        onClose={() => setSelectedJob(null)}
+        applied
       />
     </div>
   );

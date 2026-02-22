@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import BottomBar, { Tab } from "@/components/BottomBar";
 import { STORAGE_KEYS } from "@/app/lib/storageKeys";
 
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
