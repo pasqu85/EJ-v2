@@ -290,7 +290,7 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [sessionChecked, setSessionChecked] = useState(false);
-const [hasSession, setHasSession] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
 
   // Spotlight search
   const [searchQuery, setSearchQuery] = useState("");
@@ -306,122 +306,122 @@ const [hasSession, setHasSession] = useState(false);
 
   type EntryChoice = "worker" | "employer" | null;
 
-const [entryChoice, setEntryChoice] = useState<EntryChoice>(null);
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>(null);
 
-const syncAppliedJobs = async () => {
-  try {
-    const ids = await getMyAppliedJobIds();
-    setAppliedJobs(ids);
-  } catch (e) {
-    console.error("syncAppliedJobs error:", e);
-    setAppliedJobs([]);
-  }
-};
-useEffect(() => {
-  let mounted = true;
-
-  (async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!mounted) return;
-    if (!user) return;
-
-    await syncAppliedJobs();
-  })();
-
-  return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-
-useEffect(() => {
-  const onJobs = () => loadJobsFromDb();
-  const onApps = async () => {
+  const syncAppliedJobs = async () => {
     try {
       const ids = await getMyAppliedJobIds();
       setAppliedJobs(ids);
-    } catch {
+    } catch (e) {
+      console.error("syncAppliedJobs error:", e);
       setAppliedJobs([]);
     }
   };
+  useEffect(() => {
+    let mounted = true;
 
-  window.addEventListener("jobs-updated", onJobs);
-  window.addEventListener("applications-updated", onApps);
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted) return;
+      if (!user) return;
 
-  return () => {
-    window.removeEventListener("jobs-updated", onJobs);
-    window.removeEventListener("applications-updated", onApps);
-  };
-}, []);
+      await syncAppliedJobs();
+    })();
 
-useEffect(() => {
-  const handler = () => syncAppliedJobs();
-  window.addEventListener("applications-updated", handler);
-  return () => window.removeEventListener("applications-updated", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-  let mounted = true;
+    const onJobs = () => loadJobsFromDb();
+    const onApps = async () => {
+      try {
+        const ids = await getMyAppliedJobIds();
+        setAppliedJobs(ids);
+      } catch {
+        setAppliedJobs([]);
+      }
+    };
 
-  (async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!mounted) return;
+    window.addEventListener("jobs-updated", onJobs);
+    window.addEventListener("applications-updated", onApps);
 
-    if (user) {
-      // se sei worker, sincronizza candidature
-      await syncAppliedJobs();
-    } else {
-      setAppliedJobs([]);
-    }
-  })();
+    return () => {
+      window.removeEventListener("jobs-updated", onJobs);
+      window.removeEventListener("applications-updated", onApps);
+    };
+  }, []);
 
-  return () => { mounted = false; };
-}, []);
+  useEffect(() => {
+    const handler = () => syncAppliedJobs();
+    window.addEventListener("applications-updated", handler);
+    return () => window.removeEventListener("applications-updated", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted) return;
+
+      if (user) {
+        // se sei worker, sincronizza candidature
+        await syncAppliedJobs();
+      } else {
+        setAppliedJobs([]);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, []);
 
   //bottom bar
   useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  async function sync() {
-    const { data } = await supabase.auth.getSession();
-    if (!mounted) return;
+    async function sync() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
 
-    const session = data.session;
-    setHasSession(!!session);
-    setSessionChecked(true);
+      const session = data.session;
+      setHasSession(!!session);
+      setSessionChecked(true);
 
-    if (!session) {
-      // ✅ sei loggato? no -> reset UI
-      setIsLoggedIn(false);
-      setUserRole(null);
-      setActiveTab("home");
-      setAppliedJobs([]);
-      setSelectedJob(null);
+      if (!session) {
+        // ✅ sei loggato? no -> reset UI
+        setIsLoggedIn(false);
+        setUserRole(null);
+        setActiveTab("home");
+        setAppliedJobs([]);
+        setSelectedJob(null);
+      }
     }
-  }
 
-  sync();
+    sync();
 
-  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-    if (!mounted) return;
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
 
-    setHasSession(!!session);
-    setSessionChecked(true);
+      setHasSession(!!session);
+      setSessionChecked(true);
 
-    if (!session) {
-      // ✅ logout -> reset UI e niente bottom bar
-      setIsLoggedIn(false);
-      setUserRole(null);
-      setActiveTab("home");
-      setAppliedJobs([]);
-      setSelectedJob(null);
-    }
-  });
+      if (!session) {
+        // ✅ logout -> reset UI e niente bottom bar
+        setIsLoggedIn(false);
+        setUserRole(null);
+        setActiveTab("home");
+        setAppliedJobs([]);
+        setSelectedJob(null);
+      }
+    });
 
-  return () => {
-    mounted = false;
-    sub.subscription.unsubscribe();
-  };
-}, []);
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   // -------------------------
   // LOADERS (DB)
@@ -483,22 +483,22 @@ useEffect(() => {
   // -------------------------
   // INIT AUTH (NO LOCALSTORAGE)
   // -------------------------
-useEffect(() => {
-  let mounted = true;
+  useEffect(() => {
+    let mounted = true;
 
-  (async () => {
-    const { data } = await supabase.auth.getSession();
+    (async () => {
+      const { data } = await supabase.auth.getSession();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setHasSession(!!data.session);
-    setSessionChecked(true);
-  })();
+      setHasSession(!!data.session);
+      setSessionChecked(true);
+    })();
 
-  return () => {
-    mounted = false;
-  };
-}, []);
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -533,20 +533,20 @@ useEffect(() => {
       const u = session?.user ?? null;
 
       // ✅ Se torno da Google, applico il ruolo scelto prima del redirect
-if (session?.user) {
-  const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
-    | "worker"
-    | "employer"
-    | null;
+      if (session?.user) {
+        const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
+          | "worker"
+          | "employer"
+          | null;
 
-  if (pendingRole) {
-    await supabase
-      .from("profiles")
-      .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
+        if (pendingRole) {
+          await supabase
+            .from("profiles")
+            .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
 
-    localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
-  }
-}
+          localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
+        }
+      }
 
       if (!mounted) return;
 
@@ -616,70 +616,70 @@ if (session?.user) {
     router.replace("/"); // niente /login (eviti 404)
   }
 
-const handleApply = async (jobId: string) => {
-  const {
-    data: { user },
-    error: uErr,
-  } = await supabase.auth.getUser();
+  const handleApply = async (jobId: string) => {
+    const {
+      data: { user },
+      error: uErr,
+    } = await supabase.auth.getUser();
 
-  if (uErr) {
-    console.error(uErr);
-    return;
-  }
+    if (uErr) {
+      console.error(uErr);
+      return;
+    }
 
-  if (!user) {
-    alert("Devi essere loggato");
-    return;
-  }
+    if (!user) {
+      alert("Devi essere loggato");
+      return;
+    }
 
-  // ✅ inserisce candidatura nel DB
-  const { error } = await supabase
-    .from("applications")
-    .insert({
-      worker_id: user.id,
-      job_id: jobId,
-      status: "applied",
+    // ✅ inserisce candidatura nel DB
+    const { error } = await supabase
+      .from("applications")
+      .insert({
+        worker_id: user.id,
+        job_id: jobId,
+        status: "applied",
+      });
+
+    // evita errore se già candidato
+    // @ts-ignore
+    if (error && error.code !== "23505") {
+      console.error(error);
+      alert("Errore candidatura");
+      return;
+    }
+
+    await supabase
+      .from("applications")
+      .insert({
+        worker_id: user.id,
+        job_id: jobId,
+        status: "applied",
+      });
+
+    // ✅ manda email al datore
+    await fetch("/api/send-application-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId }),
     });
 
-  // evita errore se già candidato
-  // @ts-ignore
-  if (error && error.code !== "23505") {
-    console.error(error);
-    alert("Errore candidatura");
-    return;
-  }
+    // aggiorna UI locale
+    setAppliedJobs((prev) => [...prev, jobId]);
 
-  await supabase
-  .from("applications")
-  .insert({
-    worker_id: user.id,
-    job_id: jobId,
-    status: "applied",
-  });
-
-// ✅ manda email al datore
-await fetch("/api/send-application-email", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ jobId }),
-});
-
-  // aggiorna UI locale
-  setAppliedJobs((prev) => [...prev, jobId]);
-
-  // notifica ApplicationsPage
-  window.dispatchEvent(new Event("applications-updated"));
-};
-
-const handleWithdraw = async (jobId: string) => {
-  try {
-    await withdrawApplication(jobId);
-    await syncAppliedJobs(); // ✅ torna “Candidati”
+    // notifica ApplicationsPage
     window.dispatchEvent(new Event("applications-updated"));
-  } catch (e: any) {
-    alert(e?.message ?? "Errore annullamento candidatura");
-  }
-};
+  };
+
+  const handleWithdraw = async (jobId: string) => {
+    try {
+      await withdrawApplication(jobId);
+      await syncAppliedJobs(); // ✅ torna “Candidati”
+      window.dispatchEvent(new Event("applications-updated"));
+    } catch (e: any) {
+      alert(e?.message ?? "Errore annullamento candidatura");
+    }
+  };
 
   const addJob = async (job: Omit<Job, "id">) => {
     // solo employer loggato
@@ -715,120 +715,120 @@ const handleWithdraw = async (jobId: string) => {
   // -------------------------
   // RENDER HOME TAB (UI IDENTICA)
   // -------------------------
-const renderHome = () => {
-  // ✅ NON LOGGATO: welcome -> scelta -> login
-  if (!isLoggedIn) {
-    // STEP 1: scelta
-    if (!entryChoice) {
-return (
-  <div className="min-h-[85vh] flex items-center justify-center p-6 bg-slate-50/50">
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-md space-y-8"
-    >
-      {/* Testata della Welcome */}
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-          extra<span className="text-emerald-500">Job</span>
-        </h1>
-        <p className="text-slate-500 font-medium">
-          La tua prossima opportunità inizia qui. <br />
-          Scegli come vuoi procedere:
-        </p>
-      </div>
+  const renderHome = () => {
+    // ✅ NON LOGGATO: welcome -> scelta -> login
+    if (!isLoggedIn) {
+      // STEP 1: scelta
+      if (!entryChoice) {
+        return (
+          <div className="min-h-[85vh] flex items-center justify-center p-6 bg-slate-50/50">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full max-w-md space-y-8"
+            >
+              {/* Testata della Welcome */}
+              <div className="text-center space-y-2">
+                <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+                  extra<span className="text-emerald-500">Job</span>
+                </h1>
+                <p className="text-slate-500 font-medium">
+                  La tua prossima opportunità inizia qui. <br />
+                  Scegli come vuoi procedere:
+                </p>
+              </div>
 
-      <div className="space-y-4">
-        {/* OPZIONE WORKER */}
-        <button
-          onClick={() => setEntryChoice("worker")}
-          className="group relative w-full flex items-center gap-4 p-5 mb-4 !rounded-[28px] border-2 border-transparent hover:border-emerald-500 shadow-xl shadow-slate-200/50 transition-all active:scale-[0.98]"
-        >
-          <div className="flex-shrink-0 w-14 h-14 !rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <IconBriefcase size={30} stroke={2} />
+              <div className="space-y-4">
+                {/* OPZIONE WORKER */}
+                <button
+                  onClick={() => setEntryChoice("worker")}
+                  className="group relative w-full flex items-center gap-4 p-5 mb-4 !rounded-[28px] border-2 border-transparent hover:border-emerald-500 shadow-xl shadow-slate-200/50 transition-all active:scale-[0.98]"
+                >
+                  <div className="flex-shrink-0 w-14 h-14 !rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <IconBriefcase size={30} stroke={2} />
+                  </div>
+
+                  <div className="flex-grow text-left">
+                    <div className="text-lg font-black text-slate-800 leading-tight">Cerco Lavoro</div>
+                    <div className="text-xs text-slate-500 font-medium">Trova extra e turni subito</div>
+                  </div>
+
+                  <div className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all">
+                    <IconChevronRight size={24} stroke={3} />
+                  </div>
+                </button>
+
+                {/* OPZIONE EMPLOYER */}
+                <button
+                  onClick={() => setEntryChoice("employer")}
+                  className="group relative w-full flex items-center gap-4 p-5 !rounded-[28px] border-2 border-transparent hover:border-blue-500 shadow-xl shadow-slate-200/50 transition-all active:scale-[0.98]"
+                >
+                  <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <IconBuildingStore size={30} stroke={2} />
+                  </div>
+
+                  <div className="flex-grow text-left">
+                    <div className="text-lg font-black text-slate-800 leading-tight">Offro Lavoro</div>
+                    <div className="text-xs text-slate-500 font-medium">Pubblica annunci e trova staff</div>
+                  </div>
+
+                  <div className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
+                    <IconChevronRight size={24} stroke={3} />
+                  </div>
+                </button>
+              </div>
+
+              <div className="text-center pt-4">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  Semplice • Veloce • Trasparente
+                </p>
+              </div>
+            </motion.div>
           </div>
-          
-          <div className="flex-grow text-left">
-            <div className="text-lg font-black text-slate-800 leading-tight">Cerco Lavoro</div>
-            <div className="text-xs text-slate-500 font-medium">Trova extra e turni subito</div>
+        );
+      }
+
+      // STEP 2: login con ruolo pre-selezionato
+      const isEmployer = entryChoice === "employer";
+
+      return (
+        <div className="p-2">
+          <div className="max-w-md mx-auto mb-3">
+            <button
+              onClick={() => setEntryChoice(null)}
+              className="text-sm px-4 py-2 !rounded-full bg-white border shadow-sm"
+            >
+              ← Indietro
+            </button>
           </div>
 
-          <div className="text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all">
-            <IconChevronRight size={24} stroke={3} />
-          </div>
-        </button>
-
-        {/* OPZIONE EMPLOYER */}
-        <button
-          onClick={() => setEntryChoice("employer")}
-          className="group relative w-full flex items-center gap-4 p-5 !rounded-[28px] border-2 border-transparent hover:border-blue-500 shadow-xl shadow-slate-200/50 transition-all active:scale-[0.98]"
-        >
-          <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <IconBuildingStore size={30} stroke={2} />
-          </div>
-          
-          <div className="flex-grow text-left">
-            <div className="text-lg font-black text-slate-800 leading-tight">Offro Lavoro</div>
-            <div className="text-xs text-slate-500 font-medium">Pubblica annunci e trova staff</div>
-          </div>
-
-          <div className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
-            <IconChevronRight size={24} stroke={3} />
-          </div>
-        </button>
-      </div>
-
-      <div className="text-center pt-4">
-        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-          Semplice • Veloce • Trasparente
-        </p>
-      </div>
-    </motion.div>
-  </div>
-);
+          <Login
+            onLogin={handleLogin}
+            defaultRole={isEmployer ? "employer" : "worker"}
+            lockRole
+          />
+        </div>
+      );
     }
 
-    // STEP 2: login con ruolo pre-selezionato
-    const isEmployer = entryChoice === "employer";
-
-    return (
-      <div className="p-2">
-        <div className="max-w-md mx-auto mb-3">
-          <button
-            onClick={() => setEntryChoice(null)}
-            className="text-sm px-4 py-2 !rounded-full bg-white border shadow-sm"
-          >
-            ← Indietro
-          </button>
+    // ✅ LOGGATO ma role non ancora arrivato
+    if (isLoggedIn && !userRole) {
+      return (
+        <div className="p-4 space-y-4">
+          <h2 className="text-xl font-bold text-center">Caricamento profilo…</h2>
         </div>
-
-        <Login
-          onLogin={handleLogin}
-          defaultRole={isEmployer ? "employer" : "worker"}
-          lockRole
-        />
-      </div>
-    );
-  }
-
-  // ✅ LOGGATO ma role non ancora arrivato
-  if (isLoggedIn && !userRole) {
-    return (
-      <div className="p-4 space-y-4">
-        <h2 className="text-xl font-bold text-center">Caricamento profilo…</h2>
-      </div>
-    );
-  }
+      );
+    }
 
     // worker
     if (isLoggedIn && userRole === "worker") {
       const q = searchQuery.trim().toLowerCase();
       const filtered = q
         ? jobs.filter(
-            (job) =>
-              job.role.toLowerCase().includes(q) ||
-              job.location.toLowerCase().includes(q)
-          )
+          (job) =>
+            job.role.toLowerCase().includes(q) ||
+            job.location.toLowerCase().includes(q)
+        )
         : jobs;
 
       return (
@@ -882,10 +882,15 @@ return (
       {isLoggedIn && activeTab === "applications" && <ApplicationsPage />}
       {isLoggedIn && activeTab === "profile" && <ProfilePage />}
 
-      {isSearchOpen && (
+      {searchParams.get("search") === "1" && (
         <div
-          className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-start justify-center pt-32"
-          onClick={() => setIsSearchOpen(false)}
+          className="
+      fixed inset-0 z-50
+      !bg-grey-100/80
+      backdrop-blur-sm
+      flex items-start justify-center pt-28
+    "
+          onClick={() => router.push("/")}
         >
           <div className="w-[90%] max-w-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-center mb-2">
@@ -957,27 +962,27 @@ return (
         </div>
       )}
 
-<JobDetailsSheet
-  job={selectedJob}
-  onClose={() => setSelectedJob(null)}
-  applied={selectedJob ? appliedJobs.includes(selectedJob.id) : false}
-  onApply={(id) => handleApply(id)}
-  onWithdraw={async (id) => {
-    // ✅ subito UI
-    setAppliedJobs((prev) => prev.filter((x) => x !== id));
+      <JobDetailsSheet
+        job={selectedJob}
+        onClose={() => setSelectedJob(null)}
+        applied={selectedJob ? appliedJobs.includes(selectedJob.id) : false}
+        onApply={(id) => handleApply(id)}
+        onWithdraw={async (id) => {
+          // ✅ subito UI
+          setAppliedJobs((prev) => prev.filter((x) => x !== id));
 
-    // ✅ riallinea dal DB
-    await syncAppliedJobs();
-  }}
-/>
-      {sessionChecked && hasSession && userRole === "worker" && (
+          // ✅ riallinea dal DB
+          await syncAppliedJobs();
+        }}
+      />
+      {/* {sessionChecked && hasSession && userRole === "worker" && (
   <BottomBar
     activeTab={activeTab}
     onChange={(t) => setActiveTab(t)}
     onSearch={() => setIsSearchOpen(true)}
     onBackHome={() => setActiveTab("home")}
   />
-)}
+)} */}
     </main>
   );
 }

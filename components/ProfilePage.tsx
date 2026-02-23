@@ -1,24 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  IconMail,
-  IconLock,
-  IconPhone,
-  IconUser,
-  IconBuildingStore,
-  IconSettings,
-} from "@tabler/icons-react";
+import { IconMail, IconPhone, IconUser, IconSettings } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { Container, Group, Stack, ActionIcon } from "@mantine/core";
 import { supabase } from "@/app/lib/supabaseClient";
-import { STORAGE_KEYS } from "@/app/lib/storageKeys";
-
-type Business = {
-  businessName: string;
-  businessType: string;
-  address: string;
-};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -30,24 +16,29 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  const userRole =
-    typeof window !== "undefined"
-      ? (localStorage.getItem(STORAGE_KEYS.USER_ROLE) as
-          | "worker"
-          | "employer"
-          | null)
-      : null;
-
   // -----------------------
   // LOAD PROFILE FROM SUPABASE
   // -----------------------
   useEffect(() => {
-    async function loadProfile() {
+    let alive = true;
+
+    (async () => {
       const {
         data: { user },
+        error: uErr,
       } = await supabase.auth.getUser();
 
-      if (!user) return;
+      if (!alive) return;
+
+      if (uErr) {
+        console.error("Errore getUser:", uErr);
+        return;
+      }
+
+      if (!user) {
+        router.replace("/");
+        return;
+      }
 
       setEmail(user.email ?? "");
 
@@ -56,6 +47,8 @@ export default function ProfilePage() {
         .select("name, surname, phone, avatar_url")
         .eq("id", user.id)
         .single();
+
+      if (!alive) return;
 
       if (error) {
         console.error("Errore caricamento profilo:", error);
@@ -66,18 +59,21 @@ export default function ProfilePage() {
       setLastName(data?.surname ?? "");
       setPhone(data?.phone ?? "");
       setAvatar(data?.avatar_url ?? null);
-    }
+    })();
 
-    loadProfile();
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [router]);
 
   // -----------------------
-  // LOGOUT
+  // LOGOUT (NO localStorage)
   // -----------------------
-const handleLogout = async () => {
-  localStorage.clear(); // puoi tenerlo finché usi legacy
-  await supabase.auth.signOut();
-};
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("Logout error:", error);
+    router.replace("/");
+  };
 
   const fullName = useMemo(
     () => `${firstName} ${lastName}`.trim() || "Utente",
@@ -127,11 +123,7 @@ const handleLogout = async () => {
         <div className="absolute right-6 bottom-[-34px] z-20">
           <div className="h-28 w-28 !rounded-full border-[6px] border-slate-50 bg-white shadow-lg overflow-hidden flex items-center justify-center">
             {avatar ? (
-              <img
-                src={avatar}
-                alt="Avatar"
-                className="h-full w-full object-cover"
-              />
+              <img src={avatar} alt="Avatar" className="h-full w-full object-cover" />
             ) : (
               <span className="text-4xl">👤</span>
             )}
@@ -142,19 +134,11 @@ const handleLogout = async () => {
       {/* CONTENT */}
       <div className="px-4 pt-14 pb-6">
         <div className="bg-white !rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-          <InfoRow
-            icon={<IconUser size={20} />}
-            label="Nome"
-            value={fullName}
-          />
+          <InfoRow icon={<IconUser size={20} />} label="Nome" value={fullName} />
           <Divider />
           <InfoRow icon={<IconMail size={20} />} label="Email" value={email} />
           <Divider />
-          <InfoRow
-            icon={<IconPhone size={20} />}
-            label="Telefono"
-            value={phone || "—"}
-          />
+          <InfoRow icon={<IconPhone size={20} />} label="Telefono" value={phone || "—"} />
         </div>
 
         <button
@@ -171,7 +155,6 @@ const handleLogout = async () => {
 // -----------------------
 // COMPONENTI UI
 // -----------------------
-
 function Divider() {
   return <div className="h-px bg-slate-100" />;
 }
