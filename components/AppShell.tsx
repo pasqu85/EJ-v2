@@ -14,6 +14,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [hasSession, setHasSession] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
 
+    const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+
   // ✅ session sync (iniziale + realtime)
   useEffect(() => {
     let mounted = true;
@@ -49,9 +51,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const showBottomBar = sessionChecked && hasSession && !isEmployerArea;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      {/* ✅ Badge versione (sempre visibile) */}
+      <div className="fixed top-3 left-3 z-[9999] pointer-events-none">
+        <div className="px-3 py-1 text-xs font-semibold rounded-lg bg-black/70 text-white backdrop-blur shadow">
+          {APP_VERSION}
+        </div>
+      </div>
+
+      {/* contenuto */}
       {children}
 
+      {/* bottom bar globale */}
       {showBottomBar && (
         <BottomBar
           activeTab={activeTab}

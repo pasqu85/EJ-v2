@@ -147,6 +147,13 @@ export default function ProfilePage() {
         >
           LOGOUT
         </button>
+        <button
+  onClick={() => router.push("/privacy")}
+  className="mt-3 w-full !rounded-full border border-slate-200
+             font-semibold py-4 bg-white hover:bg-slate-50 transition"
+>
+  Privacy & Termini
+</button>
       </div>
     </div>
   );

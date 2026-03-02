@@ -423,7 +423,7 @@ function EmployerPanel({
           }`}
       />
       <input
-        placeholder="Paga (es. 10€/h)"
+        placeholder="Compenso (es. 80€)"
         value={pay}
         onChange={(e) => setPay(e.target.value)}
         className="w-full p-3 !rounded-xl border mt-2"

@@ -18,6 +18,7 @@ import {
   Anchor,
   Center,
   Box,
+  Checkbox,
 } from "@mantine/core";
 import { motion } from "framer-motion";
 
@@ -32,38 +33,6 @@ type Props = {
 };
 
 const PENDING_ROLE_KEY = "EXTRAJOB_PENDING_ROLE";
-
-
-async function ensureProfile(
-  userId: string,
-  payload: { role: UserRole; name: string; surname: string; phone: string }
-) {
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        id: userId,
-        role: payload.role,
-        name: payload.name,
-        surname: payload.surname,
-        phone: payload.phone,
-      },
-      { onConflict: "id" }
-    );
-
-  if (error) throw error;
-}
-
-async function getMyRole(userId: string): Promise<UserRole | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .single();
-
-  if (error) return null;
-  return (data?.role as UserRole) ?? null;
-}
 
 function splitName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
@@ -82,11 +51,17 @@ export default function Login({
   const [mode, setMode] = useState<"login" | "register">("login");
   const [role, setRole] = useState<UserRole>(defaultRole);
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // se arrivi dalla welcome e cambia defaultRole, aggiorna lo state
   useEffect(() => {
     setRole(defaultRole);
   }, [defaultRole]);
+
+  // reset checkbox quando cambi modo/ruolo (così non resta selezionata “a caso”)
+  useEffect(() => {
+    setAcceptedTerms(false);
+  }, [mode, role]);
 
   const primaryColor: "green" | "blue" = role === "worker" ? "green" : "blue";
 
@@ -101,8 +76,7 @@ export default function Login({
     validate: {
       email: (v) => (/^\S+@\S+$/.test(v) ? null : "Email non valida"),
       password: (v) => (v.trim().length >= 6 ? null : "Minimo 6 caratteri"),
-      name: (v) =>
-        mode === "register" && !v.trim() ? "Nome obbligatorio" : null,
+      name: (v) => (mode === "register" && !v.trim() ? "Nome obbligatorio" : null),
       surname: (v) =>
         mode === "register" && !v.trim() ? "Cognome obbligatorio" : null,
       phone: (v) =>
@@ -115,6 +89,51 @@ export default function Login({
     form.clearErrors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  async function ensureProfile(
+    userId: string,
+    payload: { role: UserRole; name: string; surname: string; phone: string }
+  ) {
+    const { error } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          role: payload.role,
+          name: payload.name,
+          surname: payload.surname,
+          phone: payload.phone,
+        },
+        { onConflict: "id" }
+      );
+
+    if (error) throw error;
+  }
+
+  async function getMyRole(userId: string): Promise<UserRole | null> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (error) return null;
+    return (data?.role as UserRole) ?? null;
+  }
+
+  async function markAccepted(userId: string) {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        terms_accepted_at: now,
+        privacy_accepted_at: now,
+      })
+      .eq("id", userId);
+
+    // Se la colonna non esiste o RLS blocca, lo vedi qui:
+    if (error) throw error;
+  }
 
   // Se torni da OAuth (Google) e c’è sessione: completa profilo e redirect
   useEffect(() => {
@@ -129,9 +148,10 @@ export default function Login({
 
       const userId = session.user.id;
 
+      // 1) prova a leggere ruolo da profiles
       let r = await getMyRole(userId);
 
-      // se profilo/ruolo manca, prova pending role (salvato pre-redirect)
+      // 2) se manca, usa pending role salvato prima del redirect OAuth
       if (!r) {
         const pending =
           typeof window !== "undefined"
@@ -148,6 +168,7 @@ export default function Login({
           (session.user.user_metadata?.full_name as string | undefined) ?? "";
         const { name, surname } = splitName(fullName);
 
+        // completa profilo (se hai trigger su auth.users, questo è comunque safe)
         await ensureProfile(userId, {
           role: fallbackRole,
           name,
@@ -156,6 +177,14 @@ export default function Login({
         });
 
         r = fallbackRole;
+      }
+
+      // Se vuoi: quando arriva da Google, consideriamo accettati
+      // (se preferisci obbligare anche qui, allora NON farlo e mostra una schermata dopo)
+      try {
+        await markAccepted(userId);
+      } catch (e) {
+        console.warn("markAccepted (oauth) failed:", e);
       }
 
       if (!alive) return;
@@ -183,7 +212,6 @@ export default function Login({
     phone: string;
     role: UserRole;
   }) => {
-
     const { data, error } = await supabase.auth.signUp({
       email: payload.email,
       password: payload.password,
@@ -199,10 +227,16 @@ export default function Login({
     });
 
     if (error) throw error;
+    return data.user;
   };
 
   const loginWithGoogle = async () => {
     try {
+      if (!acceptedTerms) {
+        alert("Devi accettare Privacy & Termini per continuare.");
+        return;
+      }
+
       setLoading(true);
 
       // SOLO per ricordare il ruolo durante redirect OAuth
@@ -230,12 +264,20 @@ export default function Login({
       const email = values.email.trim().toLowerCase();
       const password = values.password;
 
+      if (!acceptedTerms) {
+        alert("Devi accettare Privacy & Termini per continuare.");
+        return;
+      }
+
       if (mode === "login") {
         await doLogin(email, password);
 
         const { data } = await supabase.auth.getSession();
         const userId = data.session?.user.id;
         if (!userId) throw new Error("Sessione non trovata dopo login");
+
+        // segna accettazione
+        await markAccepted(userId);
 
         const r = (await getMyRole(userId)) ?? role;
 
@@ -249,7 +291,17 @@ export default function Login({
       const surname = (values.surname ?? "").trim();
       const phone = (values.phone ?? "").trim();
 
-      await doRegister({ email, password, name, surname, phone, role });
+      const user = await doRegister({ email, password, name, surname, phone, role });
+
+      // se hai trigger handle_new_user su auth.users, il profilo verrà creato.
+      // in ogni caso, upsert è safe (con policy insert/update own o trigger)
+      if (user?.id) {
+        try {
+          await ensureProfile(user.id, { role, name, surname, phone });
+        } catch (e) {
+          console.warn("ensureProfile (post signUp) failed:", e);
+        }
+      }
 
       // se conferma email è attiva, spesso NON c'è sessione subito
       const { data } = await supabase.auth.getSession();
@@ -258,6 +310,9 @@ export default function Login({
         setMode("login");
         return;
       }
+
+      // se session c'è, segna accettazione
+      await markAccepted(data.session.user.id);
 
       onLogin(role);
       router.replace(role === "employer" ? "/employer" : "/");
@@ -268,27 +323,7 @@ export default function Login({
     }
   });
 
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
-
-return (
-  <>
-    {/* Badge versione */}
-    <div className="fixed top-3 left-3 z-50">
-      <div
-        className="
-          px-3 py-1
-          text-xs font-semibold
-          rounded-lg
-          bg-black/70
-          text-white
-          backdrop-blur
-          shadow
-        "
-      >
-        {APP_VERSION}
-      </div>
-    </div>
-
+  return (
     <Paper
       radius="32px"
       p={30}
@@ -302,9 +337,7 @@ return (
           extra<span className="text-emerald-500">Job</span>
         </Title>
         <Text size="sm" c="dimmed" fw={500}>
-          {mode === "login"
-            ? "Bentornato su extraJob"
-            : "Crea il tuo profilo gratuito"}
+          {mode === "login" ? "Bentornato su extraJob" : "Crea il tuo profilo gratuito"}
         </Text>
       </Stack>
 
@@ -361,10 +394,7 @@ return (
 
           {/* Campi Registrazione */}
           {mode === "register" && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
               <Stack gap="md">
                 <Group grow gap="xs">
                   <TextInput
@@ -411,6 +441,24 @@ return (
             {...form.getInputProps("password")}
           />
 
+          {/* Privacy / Terms */}
+          <Checkbox
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
+            label={
+              <span className="text-sm">
+                Accetto{" "}
+                <button
+                  type="button"
+                  onClick={() => router.push("/privacy")}
+                  className="font-semibold underline"
+                >
+                  Privacy & Termini
+                </button>
+              </span>
+            }
+          />
+
           {/* Submit */}
           <Button
             radius="xl"
@@ -434,9 +482,7 @@ return (
                 type="button"
                 fw={700}
                 color={primaryColor}
-                onClick={() =>
-                  setMode(mode === "login" ? "register" : "login")
-                }
+                onClick={() => setMode(mode === "login" ? "register" : "login")}
               >
                 {mode === "login" ? "Registrati" : "Accedi"}
               </Anchor>
@@ -445,5 +491,5 @@ return (
         </Stack>
       </form>
     </Paper>
-  </>
-);} 
+  );
+}

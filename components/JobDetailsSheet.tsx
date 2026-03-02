@@ -119,7 +119,7 @@ export default function JobDetailsSheet({
                       <IconCash size={18} />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Paga Netta</span>
                     </div>
-                    <div className="text-lg font-black text-emerald-900">{job.pay}</div>
+                    <div className="text-lg font-black text-emerald-900">{job.pay}• turno</div>
                   </div>
                   
                   <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
