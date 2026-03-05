@@ -371,24 +371,32 @@ export default function Login({
           )}
 
           {/* Google */}
-          <Button
-            variant="default"
-            radius="xl"
-            size="lg"
-            fullWidth
-            leftSection={<FcGoogle size={20} />}
-            onClick={loginWithGoogle}
-            loading={loading}
-            styles={{
-              root: {
-                border: "1px solid #e5e7eb",
-                backgroundColor: "white",
-                fontWeight: 600,
-              },
-            }}
-          >
-            Continua con Google
-          </Button>
+<Button 
+  variant="default"
+  radius="xl"
+  size="lg"
+  fullWidth
+  leftSection={<FcGoogle size={20} />}
+  onClick={loginWithGoogle}
+  loading={loading}
+  styles={(theme) => ({
+    root: {
+      border: "1px solid #e5e7eb",
+      backgroundColor: "white",
+      color: theme.colors.gray[7], // Testo grigio scuro per contrasto
+      fontWeight: 600,
+      transition: "background-color 0.2s ease", // Transizione fluida
+
+      // L'hover si aggiunge qui:
+      "&:hover": {
+        backgroundColor: "#183858ff", // Grigio molto chiaro (tipico di Google Login)
+        borderColor: "#d1d5db",
+      },
+    },
+  })}
+>
+  Continua con Google
+</Button>
 
           <Divider label="oppure" labelPosition="center" />
 

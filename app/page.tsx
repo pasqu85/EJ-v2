@@ -696,13 +696,13 @@ export default function Home() {
       end_date: job.endDate.toISOString(),
     };
 
-    const { error } = await supabase.from("jobs").insert(payload);
+    // const { error } = await supabase.from("jobs").insert(payload);
 
-    if (error) {
-      console.error("addJob error:", error);
-      alert("Errore pubblicazione lavoro");
-      return;
-    }
+    // if (error) {
+    //   console.error("addJob error:", error);
+    //   alert("Errore pubblicazione lavoro");
+    //   return;
+    // }
 
     await loadJobsFromDb();
   };
