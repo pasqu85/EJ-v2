@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { IconBriefcase, IconBuildingStore, IconChevronRight } from "@tabler/icons-react";
-
+import WorkerPanel from "@/components/WorkerPanel";
 import Login from "../components/Login";
 import JobCard from "../components/JobCard";
 import ProfilePage from "../components/ProfilePage";
@@ -597,11 +597,11 @@ export default function Home() {
   }, [searchParams]);
 
   // redirect employer (DB role)
-  useEffect(() => {
-    if (isLoggedIn && userRole === "employer") {
-      router.replace("/employer");
-    }
-  }, [isLoggedIn, userRole, router]);
+  // useEffect(() => {
+  //   if (isLoggedIn && userRole === "employer") {
+  //     router.replace("/employer");
+  //   }
+  // }, [isLoggedIn, userRole, router]);
 
   // -------------------------
   // ACTIONS (DB)
@@ -649,13 +649,13 @@ export default function Home() {
       return;
     }
 
-    await supabase
-      .from("applications")
-      .insert({
-        worker_id: user.id,
-        job_id: jobId,
-        status: "applied",
-      });
+    // await supabase
+    //   .from("applications")
+    //   .insert({
+    //     worker_id: user.id,
+    //     job_id: jobId,
+    //     status: "applied",
+    //   });
 
     // ✅ manda email al datore
     await fetch("/api/send-application-email", {
@@ -821,37 +821,50 @@ export default function Home() {
     }
 
     // worker
-    if (isLoggedIn && userRole === "worker") {
-      const q = searchQuery.trim().toLowerCase();
-      const filtered = q
-        ? jobs.filter(
-          (job) =>
-            job.role.toLowerCase().includes(q) ||
-            job.location.toLowerCase().includes(q)
-        )
-        : jobs;
+    // if (isLoggedIn && userRole === "worker") {
+    //   const q = searchQuery.trim().toLowerCase();
+    //   const filtered = q
+    //     ? jobs.filter(
+    //       (job) =>
+    //         job.role.toLowerCase().includes(q) ||
+    //         job.location.toLowerCase().includes(q)
+    //     )
+    //     : jobs;
 
-      return (
-        <>
-          <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh)] overscroll-contain">
-            {filtered.length === 0 ? (
-              <p className="text-center text-gray-500">Nessuna offerta disponibile</p>
-            ) : (
-              filtered.map((job) => (
-                <div key={job.id} onClick={() => setSelectedJob(job)} className="cursor-pointer">
-                  <JobCard
-                    {...job}
-                    isLoggedIn={isLoggedIn}
-                    appliedJobs={appliedJobs}
-                    onApply={handleApply}
-                  />
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      );
-    }
+    //   return (
+    //     <>
+    //       <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh)] overscroll-contain">
+    //         {filtered.length === 0 ? (
+    //           <p className="text-center text-gray-500">Nessuna offerta disponibile</p>
+    //         ) : (
+    //           filtered.map((job) => (
+    //             <div key={job.id} onClick={() => setSelectedJob(job)} className="cursor-pointer">
+    //               <JobCard
+    //                 {...job}
+    //                 isLoggedIn={isLoggedIn}
+    //                 appliedJobs={appliedJobs}
+    //                 onApply={handleApply}
+    //               />
+    //             </div>
+    //           ))
+    //         )}
+    //       </div>
+    //     </>
+    //   );
+    // }
+
+    if (isLoggedIn && userRole === "worker") {
+  return (
+    <WorkerPanel
+      jobs={jobs}
+      appliedJobs={appliedJobs}
+      isLoggedIn={isLoggedIn}
+      searchQuery={searchQuery}
+      onApply={handleApply}
+      onSelectJob={(job) => setSelectedJob(job)}
+    />
+  );
+}
 
     // employer (questa parte teoricamente non la vedi perché redirect /employer)
     if (isLoggedIn && userRole === "employer") {

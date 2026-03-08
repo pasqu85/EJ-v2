@@ -232,7 +232,7 @@ export default function Login({
 
   const loginWithGoogle = async () => {
     try {
-      if (!acceptedTerms) {
+      if (mode === "register" && !acceptedTerms) {
         alert("Devi accettare Privacy & Termini per continuare.");
         return;
       }
@@ -264,7 +264,7 @@ export default function Login({
       const email = values.email.trim().toLowerCase();
       const password = values.password;
 
-      if (!acceptedTerms) {
+      if (mode === "register" && !acceptedTerms) {
         alert("Devi accettare Privacy & Termini per continuare.");
         return;
       }
@@ -277,7 +277,7 @@ export default function Login({
         if (!userId) throw new Error("Sessione non trovata dopo login");
 
         // segna accettazione
-        await markAccepted(userId);
+        // await markAccepted(userId);
 
         const r = (await getMyRole(userId)) ?? role;
 
@@ -371,32 +371,32 @@ export default function Login({
           )}
 
           {/* Google */}
-<Button 
-  variant="default"
-  radius="xl"
-  size="lg"
-  fullWidth
-  leftSection={<FcGoogle size={20} />}
-  onClick={loginWithGoogle}
-  loading={loading}
-  styles={(theme) => ({
-    root: {
-      border: "1px solid #e5e7eb",
-      backgroundColor: "white",
-      color: theme.colors.gray[7], // Testo grigio scuro per contrasto
-      fontWeight: 600,
-      transition: "background-color 0.2s ease", // Transizione fluida
+          <Button
+            variant="default"
+            radius="xl"
+            size="lg"
+            fullWidth
+            leftSection={<FcGoogle size={20} />}
+            onClick={loginWithGoogle}
+            loading={loading}
+            styles={(theme) => ({
+              root: {
+                border: "1px solid #e5e7eb",
+                backgroundColor: "white",
+                color: theme.colors.gray[7], // Testo grigio scuro per contrasto
+                fontWeight: 600,
+                transition: "background-color 0.2s ease", // Transizione fluida
 
-      // L'hover si aggiunge qui:
-      "&:hover": {
-        backgroundColor: "#183858ff", // Grigio molto chiaro (tipico di Google Login)
-        borderColor: "#d1d5db",
-      },
-    },
-  })}
->
-  Continua con Google
-</Button>
+                // L'hover si aggiunge qui:
+                "&:hover": {
+                  backgroundColor: "#183858ff", // Grigio molto chiaro (tipico di Google Login)
+                  borderColor: "#d1d5db",
+                },
+              },
+            })}
+          >
+            Continua con Google
+          </Button>
 
           <Divider label="oppure" labelPosition="center" />
 
@@ -450,22 +450,24 @@ export default function Login({
           />
 
           {/* Privacy / Terms */}
-          <Checkbox
-            checked={acceptedTerms}
-            onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
-            label={
-              <span className="text-sm">
-                Accetto{" "}
-                <button
-                  type="button"
-                  onClick={() => router.push("/privacy")}
-                  className="font-semibold underline"
-                >
-                  Privacy & Termini
-                </button>
-              </span>
-            }
-          />
+          {mode === "register" && (
+            <Checkbox
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.currentTarget.checked)}
+              label={
+                <span className="text-sm">
+                  Accetto{" "}
+                  <button
+                    type="button"
+                    onClick={() => router.push("/privacy")}
+                    className="font-semibold underline"
+                  >
+                    Privacy & Termini
+                  </button>
+                </span>
+              }
+            />
+          )}
 
           {/* Submit */}
           <Button
