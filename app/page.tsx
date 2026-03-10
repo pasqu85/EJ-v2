@@ -235,7 +235,7 @@ function EmployerPanel({
         placeholder="Luogo"
         value={location}
         onChange={(e) => setLocation(e.target.value)}
-        className="w-full p-3 !rounded-xl border outline-none"
+        className="w-full p-3 !rounded-xl border outline-none "
       />
 
       <input

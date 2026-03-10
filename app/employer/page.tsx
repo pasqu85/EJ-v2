@@ -358,7 +358,7 @@ const handleSubmit = async () => {
           <button
             type="button"
             onClick={() => router.push("/employer/business")}
-            className="mt-3 w-full !rounded-full bg-emerald-500 text-white font-semibold py-3"
+            className="mt-3 w-full !rounded-full bg-linear-to-r from-blue-500 to-cyan-500 text-white font-semibold py-3"
           >
             Registra attività
           </button>
@@ -456,21 +456,21 @@ const handleSubmit = async () => {
         placeholder="Ruolo (es. Cameriere)"
         value={role}
         onChange={(e) => setRole(e.target.value)}
-        className="w-full p-3 !rounded-xl border mt-2"
+        className="w-full p-3 !rounded-xl border mt-2 bg-white"
       />
       <input
         placeholder="Luogo"
         value={location}
         onChange={(e) => setLocation(e.target.value)}
         disabled={!!selectedBusiness && useBusiness}
-        className={`w-full p-3 !rounded-xl border mt-2 ${selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
+        className={`w-full p-3 !rounded-xl border mt-2 bg-white ${selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
           }`}
       />
       <input
         placeholder="Compenso (es. 80€)"
         value={pay}
         onChange={(e) => setPay(e.target.value)}
-        className="w-full p-3 !rounded-xl border mt-2"
+        className="w-full p-3 !rounded-xl border mt-2 bg-white"
       />
 
       {/* <button
@@ -503,7 +503,7 @@ const handleSubmit = async () => {
 
         <button
           onClick={handleSubmit}
-          className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white !rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
+          className="w-full py-4 bg-linear-to-r from-blue-500 to-cyan-500 hover:bg-emerald-400 text-white !rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
         >
           Paga e Pubblica
           <div className="h-6 w-[1px] bg-white/30" />
