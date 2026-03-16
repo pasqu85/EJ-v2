@@ -1,55 +1,40 @@
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-02-25.clover",
-});
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: Request) {
-  const body = await req.text();
-  const signature = req.headers.get("stripe-signature")!;
 
-  let event: Stripe.Event;
+  const { jobData, userId } = await req.json();
+    const origin =
+    req.headers.get("origin") || "https://www.extrajobs.app";
 
-  try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (err) {
-    console.error("Webhook error:", err);
-    return new Response("Webhook error", { status: 400 });
-  }
 
-  console.log("EVENT:", event.type);
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+    mode: "payment",
 
-    console.log("METADATA:", session.metadata);
+    line_items: [
+      {
+        price_data: {
+          currency: "eur",
+          product_data: {
+            name: "Pubblicazione annuncio lavoro",
+          },
+          unit_amount: 100, // 1€
+        },
+        quantity: 1,
+      },
+    ],
+success_url: `${origin}/employer?success=true`,
+cancel_url: `${origin}/employer`,
 
-    const userId = session.metadata?.userId;
-    const jobData = JSON.parse(session.metadata?.jobData || "{}");
+    metadata: {
+      userId,
+      jobData: JSON.stringify(jobData),
+    },
+  });
 
-    const { error } = await supabase.from("jobs").insert({
-      ...jobData,
-      employer_id: userId,
-    });
-
-    if (error) {
-      console.error("SUPABASE ERROR:", error);
-    } else {
-      console.log("JOB CREATED");
-    }
-  }
-
-  return new Response("ok", { status: 200 });
+  return NextResponse.json({ url: session.url });
 }
