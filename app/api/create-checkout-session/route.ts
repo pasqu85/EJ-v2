@@ -29,7 +29,7 @@ export async function POST(req: Request) {
         end_date: jobData.endDate,     // Assicurati che sia in formato ISO string
         business_name: jobData.businessName, // Mappa businessName su business_name
         employer_id: userId,
-        status: "pending",
+        // status: "pending",
       })
       .select()
       .single();
