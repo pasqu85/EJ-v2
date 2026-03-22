@@ -693,32 +693,49 @@ async function loadJobsFromDb() {
 const addJob = async (job: Omit<Job, "id">) => {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;
-  if (!user) return;
-
-  // VERIFICA QUESTA PARTE:
-  const payload = {
-    employer_id: user.id,
-    role: job.role,
-    location: job.location,
-    pay: job.pay,
-    start_date: job.startDate.toISOString(),
-    end_date: job.endDate.toISOString(),
-    // ✅ DEVE ESSERE business_name (come nel DB), non 'business'
-    business_name: job.businessName, 
-  };
-
-  const { error } = await supabase
-    .from("jobs")
-    .insert(payload);
-
-  if (error) {
-    console.error("ERRORE INSERIMENTO:", error);
-    alert("Errore durante la pubblicazione");
+  
+  if (!user) {
+    alert("Devi essere loggato per pubblicare un lavoro");
     return;
   }
-  
-  await loadJobsFromDb();
+
+  try {
+    // 1. Chiamata all'API per creare la sessione di pagamento
+    const response = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: user.id,
+        jobData: {
+          role: job.role,
+          location: job.location,
+          pay: job.pay,
+          startDate: job.startDate.toISOString(),
+          endDate: job.endDate.toISOString(),
+          businessName: job.businessName, // Passiamo il nome attività come 'businessName'
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Errore durante la creazione della sessione");
+    }
+
+    // 2. Se l'API restituisce un URL, reindirizziamo l'utente su Stripe
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("Non è stato possibile generare il link di pagamento.");
+    }
+
+  } catch (err: any) {
+    console.error("ERRORE PUBBLICAZIONE:", err);
+    alert(`Errore: ${err.message}`);
+  }
 };
+
 
   function openSearch() {
     setIsSearchOpen(true);

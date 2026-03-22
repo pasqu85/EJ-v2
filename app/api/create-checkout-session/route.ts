@@ -17,11 +17,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing data" }, { status: 400 });
     }
 
-    // ✅ 1. salva job in pending
+    // ✅ 1. Mappatura corretta per Supabase
+    // Questo risolve l'errore "Could not find the 'business' column"
     const { data: job, error } = await supabase
       .from("jobs")
       .insert({
-        ...jobData,
+        role: jobData.role,
+        location: jobData.location,
+        pay: jobData.pay,
+        start_date: jobData.startDate, // Assicurati che sia in formato ISO string
+        end_date: jobData.endDate,     // Assicurati che sia in formato ISO string
+        business_name: jobData.businessName, // Mappa businessName su business_name
         employer_id: userId,
         status: "pending",
       })
@@ -33,43 +39,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-const baseUrl =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "https://www.extrajobs.app";
+    const baseUrl =
+      process.env.NODE_ENV === "development"
+        ? "http://localhost:3000"
+        : "https://www.extrajobs.app";
 
-    // ✅ 2. crea checkout
+    // ✅ 2. Crea sessione Checkout Stripe
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-
       line_items: [
         {
           price_data: {
             currency: "eur",
             product_data: {
-              name: "Pubblicazione annuncio lavoro",
+              name: `Pubblicazione annuncio: ${jobData.role}`,
             },
-            unit_amount: 100,
+            unit_amount: 100, // 1.00€
           },
           quantity: 1,
         },
       ],
+      success_url: `${baseUrl}/employer/success`,
+      cancel_url: `${baseUrl}/employer`,
 
-success_url: `${baseUrl}/employer/success`,
-cancel_url: `${baseUrl}/employer`,
-
-      // 🔥 SOLO ID
-metadata: {
-  userId,
-  jobData: JSON.stringify(jobData),
-},
+      // ✅ Usa jobData (che hai estratto sopra) invece di body
+      metadata: {
+        jobId: job.id, // Molto importante passare l'ID del job appena creato
+        role: jobData.role,
+        business_name: jobData.businessName,
+      },
     });
 
     return NextResponse.json({ url: session.url });
 
   } catch (err) {
-    console.error("STRIPE ERROR:", err);
+    console.error("SERVER ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
