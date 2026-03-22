@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const baseUrl =
+const baseUrl =
   process.env.NODE_ENV === "development"
     ? "http://localhost:3000"
     : "https://www.extrajobs.app";
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         },
       ],
 
-success_url: `${baseUrl}/employer?success=true`,
+success_url: `${baseUrl}/employer/success`,
 cancel_url: `${baseUrl}/employer`,
 
       // 🔥 SOLO ID

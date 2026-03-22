@@ -695,7 +695,7 @@ const addJob = async (job: Omit<Job, "id">) => {
   const user = auth.user;
   if (!user) return;
 
-  // Qui usiamo 'businessName' che arriva dal tuo stato del Form
+  // VERIFICA QUESTA PARTE:
   const payload = {
     employer_id: user.id,
     role: job.role,
@@ -703,10 +703,19 @@ const addJob = async (job: Omit<Job, "id">) => {
     pay: job.pay,
     start_date: job.startDate.toISOString(),
     end_date: job.endDate.toISOString(),
-    business_name: job.businessName, // Mappa businessName del form su business_name del DB
+    // ✅ DEVE ESSERE business_name (come nel DB), non 'business'
+    business_name: job.businessName, 
   };
 
-  // Se usi Stripe, ricordati di passare 'payload' alla tua API di checkout qui
+  const { error } = await supabase
+    .from("jobs")
+    .insert(payload);
+
+  if (error) {
+    console.error("ERRORE INSERIMENTO:", error);
+    alert("Errore durante la pubblicazione");
+    return;
+  }
   
   await loadJobsFromDb();
 };
