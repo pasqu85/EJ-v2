@@ -83,10 +83,11 @@ export async function POST(req: Request) {
       pay: jobData.pay,
       start_date: jobData.startDate,
       end_date: jobData.endDate,
-      business_id: jobData.business?.id || null,
-      business_name: jobData.business?.name || null,
-      business_type: jobData.business?.type || null,
-      business_address: jobData.business?.address || null,
+  // 👇 QUESTI OK
+  business_id: jobData.business?.id || null,
+  business_name: jobData.business?.name || null,
+  business_type: jobData.business?.type || null,
+  business_address: jobData.business?.address || null,
 
       // 🔥 fondamentale per evitare duplicati
       stripe_session_id: session.id,

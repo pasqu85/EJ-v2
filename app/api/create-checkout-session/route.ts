@@ -39,10 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const baseUrl =
-      process.env.NODE_ENV === "development"
-        ? "http://localhost:3000"
-        : "https://www.extrajobs.app";
+const baseUrl = "https://www.extrajobs.app";
 
     // ✅ 2. Crea sessione Checkout Stripe
     const session = await stripe.checkout.sessions.create({
