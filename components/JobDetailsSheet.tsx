@@ -11,10 +11,10 @@ import {
   IconBrandWhatsapp, 
   IconNotes,
   IconExternalLink,
-  IconAlertCircle
+  IconBuildingStore // Aggiunto per l'icona attività
 } from "@tabler/icons-react";
 
-// Tipi e Helper (mantenuti per logica)
+// Tipi aggiornati
 type Job = {
   id: string;
   role: string;
@@ -22,6 +22,7 @@ type Job = {
   pay: string;
   startDate: Date | string;
   endDate: Date | string;
+  businessName?: string; // Aggiunto
   lat?: number;
   lng?: number;
   notes?: string;
@@ -88,7 +89,6 @@ export default function JobDetailsSheet({
           >
             <div className="mx-2 mb-2 rounded-[32px] bg-white shadow-2xl overflow-hidden border border-slate-100">
               
-              {/* HANDLE & CLOSE */}
               <div className="relative flex justify-center pt-4">
                 <div className="w-12 h-1.5 rounded-full bg-slate-200" />
                 <button
@@ -101,35 +101,48 @@ export default function JobDetailsSheet({
 
               <div className="p-6 pt-2 space-y-6 max-h-[85vh] overflow-y-auto">
                 
-                {/* HEADER */}
+                {/* HEADER CON NOME ATTIVITÀ */}
                 <div className="space-y-1">
+                  {job.businessName && (
+                    <div className="flex items-center gap-1 text-[10px] font-black text-emerald-600 uppercase tracking-[0.15em] mb-1">
+                      <IconBuildingStore size={12} stroke={3} />
+                      {job.businessName}
+                    </div>
+                  )}
                   <h2 className="text-2xl font-black text-slate-900 leading-tight">
                     {job.role}
                   </h2>
-                  <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-                    <IconMapPin size={16} stroke={2.5} />
+                  <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+                    <IconMapPin size={16} stroke={2} />
                     <span className="text-sm">{job.location}</span>
                   </div>
                 </div>
 
-                {/* INFO GRID */}
+                {/* INFO GRID (PAGA E ORARIO) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-2xl bg-emerald-50/50 p-4 border border-emerald-100/50">
                     <div className="flex items-center gap-2 text-emerald-700 mb-1">
                       <IconCash size={18} />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Paga Netta</span>
                     </div>
-                    <div className="text-lg font-black text-emerald-900">{job.pay}• turno</div>
+                    <div className="text-lg font-black text-emerald-900">{job.pay}</div>
                   </div>
                   
                   <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
                     <div className="flex items-center gap-2 text-slate-500 mb-1">
                       <IconClock size={18} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Orario</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Turno</span>
                     </div>
                     <div className="text-xs font-bold text-slate-700 leading-relaxed">
-                      {toDate(job.startDate).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' })} <br/>
-                      {toDate(job.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {toDate(job.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <span className="text-slate-400 font-medium uppercase tracking-tighter">
+                        {toDate(job.startDate).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'short' })}
+                      </span>
+                      <br/>
+                      <span className="text-sm">
+                        {toDate(job.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {" → "}
+                        {toDate(job.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -148,14 +161,14 @@ export default function JobDetailsSheet({
                       className="w-full h-full grayscale-[0.2] contrast-[1.1]"
                       src={`https://maps.google.com/maps?q=${encodeURIComponent(job.location)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
                     />
-                    <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition" />
-                    <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-sm flex items-center gap-2 text-xs font-bold text-slate-800">
+                    <div className="absolute inset-0 bg-slate-900/5 group-hover:bg-transparent transition" />
+                    <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-4 py-2 rounded-2xl shadow-sm flex items-center gap-2 text-xs font-bold text-slate-800 border border-white">
                       <IconExternalLink size={14} /> Mappe
                     </div>
                   </div>
                 </div>
 
-                {/* NOTES */}
+                {/* NOTE */}
                 {job.notes && (
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex gap-3">
                     <IconNotes size={20} className="text-slate-400 shrink-0" />
@@ -163,25 +176,12 @@ export default function JobDetailsSheet({
                   </div>
                 )}
 
-                {/* ACTIONS */}
+                {/* AZIONI */}
                 <div className="space-y-3 pt-2">
-                  {/* WhatsApp (Solo se presente) */}
-                  {job.workerPhone && (
-                    <a
-                      href={whatsappLink(job.workerPhone, `Ciao! Mi candido per "${job.role}"...`)}
-                      target="_blank"
-                      className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-bold bg-[#25D366] text-white shadow-lg shadow-green-200 active:scale-95 transition"
-                    >
-                      <IconBrandWhatsapp size={22} />
-                      Scrivi su WhatsApp
-                    </a>
-                  )}
-
-                  {/* Button Candidatura */}
                   {!applied ? (
                     <button
                       onClick={() => onApply?.(job.id)}
-                      className="w-full py-4 rounded-2xl font-black bg-emerald-500 text-white shadow-lg shadow-emerald-200 active:scale-95 transition"
+                      className="w-full py-4 rounded-2xl font-black bg-emerald-500 text-white shadow-lg shadow-emerald-200 active:scale-95 transition-all"
                     >
                       CANDIDATI ORA
                     </button>
@@ -190,6 +190,19 @@ export default function JobDetailsSheet({
                       <div className="flex items-center justify-center gap-2 py-4 rounded-2xl font-bold bg-slate-100 text-slate-500 border border-slate-200">
                         CANDIDATURA INVIATA
                       </div>
+                      
+                      {/* Bottone WhatsApp appare solo se sei già candidato */}
+                      {job.workerPhone && (
+                        <a
+                          href={whatsappLink(job.workerPhone, `Ciao! Mi sono candidato su extraJob per "${job.role}" del ${toDate(job.startDate).toLocaleDateString('it-IT')}. Sono disponibile!`)}
+                          target="_blank"
+                          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-bold bg-[#25D366] text-white shadow-lg shadow-green-200 active:scale-95 transition"
+                        >
+                          <IconBrandWhatsapp size={22} />
+                          Contatta su WhatsApp
+                        </a>
+                      )}
+
                       <button
                         onClick={handleWithdraw}
                         disabled={withdrawing}

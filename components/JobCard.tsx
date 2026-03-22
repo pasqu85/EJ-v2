@@ -7,18 +7,15 @@ import {
   Stack, 
   Badge, 
   Button, 
-  ThemeIcon, 
   Box 
 } from "@mantine/core";
 import { 
   IconMapPin, 
   IconCalendarEvent, 
   IconCheck, 
-  IconChevronRight,
-  IconCurrencyEuro
+  IconClock // NUOVO: aggiungi questo import
 } from "@tabler/icons-react";
 
-// Importa il tipo Job (usa il tuo path corretto)
 type Job = {
   id: string;
   role: string;
@@ -26,12 +23,22 @@ type Job = {
   startDate: Date;
   endDate: Date;
   pay: string;
+  business_name?: string; // NUOVO: aggiungiamo il nome dell'attività
 };
 
 type JobCardProps = Job & {
   isLoggedIn: boolean;
   appliedJobs: string[];
   onApply: (id: string) => void;
+};
+
+// Funzione di utilità per il calcolo delle ore
+const calcolaOre = (inizio: any, fine: any) => {
+  const start = new Date(inizio);
+  const end = new Date(fine);
+  const diffInMs = end.getTime() - start.getTime();
+  const ore = diffInMs / (1000 * 60 * 60);
+  return ore > 0 ? ore.toFixed(1) : "N/D";
 };
 
 export default function JobCard({
@@ -41,13 +48,14 @@ export default function JobCard({
   startDate,
   endDate,
   pay,
+  business_name, // NUOVO: recuperiamo il nome dalle props
   isLoggedIn,
   appliedJobs,
   onApply,
 }: JobCardProps) {
   const alreadyApplied = appliedJobs.includes(id);
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: any) => {
     const d = date instanceof Date ? date : new Date(date);
     return d.toLocaleDateString("it-IT", {
       day: "2-digit",
@@ -74,12 +82,18 @@ export default function JobCard({
     >
       <Group justify="space-between" wrap="nowrap" align="flex-start">
         <Stack gap={4} style={{ flex: 1 }}>
+          
+          {/* NUOVO: Nome attività in piccolo sopra il ruolo */}
+          <Text size="xs" fw={800} c="blue.6" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {business_name || "Privato"}
+          </Text>
+
           <Group gap={8}>
             <Title order={4} fw={800} style={{ letterSpacing: "-0.5px" }}>
               {role}
             </Title>
             {alreadyApplied && (
-              <Badge color="emerald" variant="light" size="sm" leftSection={<IconCheck size={12} />}>
+              <Badge color="teal" variant="light" size="sm" leftSection={<IconCheck size={12} />}>
                 Inviata
               </Badge>
             )}
@@ -99,12 +113,18 @@ export default function JobCard({
             </Group>
             <Text size="xs" c="dimmed" fw={500}>—</Text>
             <Text size="xs" fw={700} c="slate.7">
-              {formatDate(endDate).split(',')[1] /* solo ora fine */}
+                {/* Visualizza solo l'orario di fine */}
+                {new Date(endDate).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </Group>
         </Stack>
 
         <Stack align="flex-end" gap={8}>
+          {/* NUOVO: Badge ore totali */}
+          <Badge variant="dot" color="gray" size="sm">
+            {calcolaOre(startDate, endDate)} ore
+          </Badge>
+          
           <Box
             style={{
               backgroundColor: "#ecfdf5",
@@ -113,43 +133,40 @@ export default function JobCard({
               border: "1px solid #10b98120"
             }}
           >
-            <Text fw={900} c="emerald.9" size="md">
-              {pay}€
+            <Text fw={900} c="green.9" size="md">
+              {pay}€/h
             </Text>
           </Box>
         </Stack>
       </Group>
 
-      {/* Pulsante rapido (visibile solo se non applicato) */}
-{!alreadyApplied && (
-  <Button
-    fullWidth
-    radius="xl"
-    mt="md"
-    size="sm"
-    variant="light"
-    color="emerald"
-    onClick={async (e) => {
-      e.stopPropagation();
-      if (!isLoggedIn) return alert("Accedi per candidarti");
-
-      try {
-        await onApply(id); // ✅ IMPORTANTISSIMO: await
-        window.dispatchEvent(new Event("applications-updated")); // ✅ refresh lista candidature
-      } catch (err: any) {
-        alert(err?.message ?? "Errore candidatura");
-      }
-    }}
-    style={{ height: 40, fontWeight: 700 }}
-  >
-    Candidati Ora
-  </Button>
-)}
+      {!alreadyApplied && (
+        <Button
+          fullWidth
+          radius="xl"
+          mt="md"
+          size="sm"
+          variant="light"
+          color="green"
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (!isLoggedIn) return alert("Accedi per candidarti");
+            try {
+              await onApply(id);
+              window.dispatchEvent(new Event("applications-updated"));
+            } catch (err: any) {
+              alert(err?.message ?? "Errore candidatura");
+            }
+          }}
+          style={{ height: 40, fontWeight: 700 }}
+        >
+          Candidati Ora
+        </Button>
+      )}
     </Paper>
   );
 }
 
-// Nota: Ho usato Title di Mantine, se non lo hai importato usa un normale <h3> con queste classi:
 function Title({ children, style }: any) {
     return <h3 style={{ margin: 0, ...style }}>{children}</h3>;
 }

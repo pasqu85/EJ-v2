@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DatePickerInput } from "@mantine/dates";
 import { IconClock, IconBuildingStore, IconMapPin } from "@tabler/icons-react";
 import { supabase } from "@/app/lib/supabaseClient";
+import { TextInput } from "@mantine/core";
 
 type Business = {
   id: string;
@@ -111,6 +112,7 @@ function EmployerPanel({
   const [role, setRole] = useState("");
   const [location, setLocation] = useState("");
   const [pay, setPay] = useState("");
+  const [businessName, setBusinessName] = useState('');
 
   const [startDay, setStartDay] = useState<Date | null>(startOfToday());
   const [endDay, setEndDay] = useState<Date | null>(startOfToday());
@@ -129,107 +131,109 @@ function EmployerPanel({
   useEffect(() => {
     if (selectedBusiness && useBusiness) {
       setLocation(selectedBusiness.address);
+      setBusinessName(selectedBusiness.name);
+    } else if (!useBusiness) {
     }
-  }, [selectedBusinessId, useBusiness]);
+  }, [selectedBusiness, useBusiness]);
 
   const handleCreateJob = async (jobData: {
-  role: string;
-  location: string;
-  pay: string;
-  startDate: string;
-  endDate: string;
-  business: Business | null;
-}) => {
-  const { data } = await supabase.auth.getSession();
-  const userId = data.session?.user.id;
+    role: string;
+    location: string;
+    pay: string;
+    startDate: string;
+    endDate: string;
+    business: Business | null;
+  }) => {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
 
-  if (!userId) {
-    alert("Devi essere loggato per pubblicare");
-    return;
-  }
+    if (!userId) {
+      alert("Devi essere loggato per pubblicare");
+      return;
+    }
 
-  const res = await fetch("/api/create-checkout-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jobData, userId }),
-  });
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobData, userId }),
+    });
 
-  const json = await res.json();
+    const json = await res.json();
 
-  if (json.url) {
-    window.location.href = json.url;
-  } else {
-    alert("Errore nella creazione della sessione di pagamento");
-  }
-};
-
-const handleSubmit = async () => {
-  if (!role.trim() || !pay.trim()) {
-    alert("Compila ruolo e paga");
-    return;
-  }
-
-  const finalLocation =
-    selectedBusiness && useBusiness
-      ? selectedBusiness.address
-      : location;
-
-  if (!finalLocation.trim()) {
-    alert("Inserisci il luogo");
-    return;
-  }
-
-  if (!startDay || !endDay || !startTime || !endTime) {
-    alert("Seleziona data e ora");
-    return;
-  }
-
-  const startDate = combineDayAndTime(startDay, startTime);
-  const endDate = combineDayAndTime(endDay, endTime);
-
-  if (endDate <= startDate) {
-    alert("La fine deve essere dopo l’inizio");
-    return;
-  }
-
-  // 🔐 Prendiamo user id
-  const { data } = await supabase.auth.getSession();
-  const userId = data.session?.user.id;
-
-  if (!userId) {
-    alert("Devi essere loggato per pubblicare");
-    return;
-  }
-
-  const jobData = {
-    role: role.trim(),
-    location: finalLocation.trim(),
-    pay: pay.trim(),
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-    business: selectedBusiness && useBusiness ? selectedBusiness : null,
+    if (json.url) {
+      window.location.href = json.url;
+    } else {
+      alert("Errore nella creazione della sessione di pagamento");
+    }
   };
 
-  // 💳 Stripe Checkout
-  const res = await fetch("/api/create-checkout-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jobData, userId }),
-  });
+  const handleSubmit = async () => {
+    if (!role.trim() || !pay.trim()) {
+      alert("Compila ruolo e paga");
+      return;
+    }
 
-  if (!res.ok) {
-    alert("Errore nella creazione del pagamento");
-    return;
-  }
+    const finalLocation =
+      selectedBusiness && useBusiness
+        ? selectedBusiness.address
+        : location;
 
-  const json = await res.json();
+    if (!finalLocation.trim()) {
+      alert("Inserisci il luogo");
+      return;
+    }
 
-  if (json.url) {
-    window.location.href = json.url;
-  } else {
-    alert("Pagamento non avviato");
-  }
-};  
+    if (!startDay || !endDay || !startTime || !endTime) {
+      alert("Seleziona data e ora");
+      return;
+    }
+
+    const startDate = combineDayAndTime(startDay, startTime);
+    const endDate = combineDayAndTime(endDay, endTime);
+
+    if (endDate <= startDate) {
+      alert("La fine deve essere dopo l’inizio");
+      return;
+    }
+
+    // 🔐 Prendiamo user id
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+
+    if (!userId) {
+      alert("Devi essere loggato per pubblicare");
+      return;
+    }
+
+    const jobData = {
+      role: role.trim(),
+      location: finalLocation.trim(),
+      pay: pay.trim(),
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      business: selectedBusiness && useBusiness ? selectedBusiness : null,
+    };
+
+    // 💳 Stripe Checkout
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobData, userId }),
+    });
+
+    if (!res.ok) {
+      alert("Errore nella creazione del pagamento");
+      return;
+    }
+
+    const json = await res.json();
+
+    if (json.url) {
+      window.location.href = json.url;
+    } else {
+      alert("Pagamento non avviato");
+    }
+  };
 
   const mapUrl = selectedBusiness?.address
     ? getStaticMapUrl(selectedBusiness.address)
@@ -255,8 +259,8 @@ const handleSubmit = async () => {
                 if (next && selectedBusiness) setLocation(selectedBusiness.address);
               }}
               className={`px-3 py-2 !rounded-full text-sm font-semibold border transition ${useBusiness
-                  ? "bg-linear-to-r from-blue-500 to-cyan-500 text-white border-blue-400"
-                  : "bg-white text-slate-700 border-slate-200"
+                ? "bg-linear-to-r from-blue-500 to-cyan-500 text-white border-blue-400"
+                : "bg-white text-slate-700 border-slate-200"
                 }`}
             >
               {useBusiness ? "Usata" : "Usa"}
@@ -368,14 +372,14 @@ const handleSubmit = async () => {
       {/* DATE + TIME */}
       <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 mt-2">
         <div className="space-y-2">
-<DatePickerInput
-  label="Data inizio"
-  variant="filled"
-  radius="xl"
-  dropdownType="modal"
-  value={startDay}
-  onChange={(v) => setStartDay(v as unknown as Date | null)}
-/>
+          <DatePickerInput
+            label="Data inizio"
+            variant="filled"
+            radius="xl"
+            dropdownType="modal"
+            value={startDay}
+            onChange={(v) => setStartDay(v as unknown as Date | null)}
+          />
           <button
             type="button"
             onClick={() => openTimePicker(startTimeRef)}
@@ -409,15 +413,15 @@ const handleSubmit = async () => {
         </div>
 
         <div className="space-y-2">
-<DatePickerInput
-  label="Data fine"
-  variant="filled"
-  radius="xl"
-  dropdownType="modal"
-  value={endDay}
-  onChange={(v) => setEndDay(v as unknown as Date | null)}
-  minDate={startDay ?? undefined}
-/>
+          <DatePickerInput
+            label="Data fine"
+            variant="filled"
+            radius="xl"
+            dropdownType="modal"
+            value={endDay}
+            onChange={(v) => setEndDay(v as unknown as Date | null)}
+            minDate={startDay ?? undefined}
+          />
           <button
             type="button"
             onClick={() => openTimePicker(endTimeRef)}
@@ -452,6 +456,23 @@ const handleSubmit = async () => {
       </div>
 
       {/* INPUTS */}
+      {/* <TextInput
+  label="Nome Attività / Azienda"
+  placeholder="Es: Bar Centrale..."
+  value={businessName}
+  onChange={(e) => setBusinessName(e.currentTarget.value)}
+  required
+  mb="md"
+  variant="filled" // Assicurati che lo stile sia uguale agli altri
+/> */}
+      <input
+        placeholder="Nome Attività / Azienda"
+        value={businessName}
+        onChange={(e) => setBusinessName(e.currentTarget.value)}
+        disabled={!!selectedBusiness && useBusiness}
+        className={`w-full p-3 !rounded-xl border mt-2 bg-white ${selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
+          }`}
+      />
       <input
         placeholder="Ruolo (es. Cameriere)"
         value={role}
@@ -509,7 +530,7 @@ const handleSubmit = async () => {
           <div className="h-6 w-[1px] bg-white/30" />
           <span className="text-sm opacity-90 font-bold">Stripe 💳</span>
         </button>
-        
+
         <p className="text-[10px] text-center mt-4 text-slate-500 leading-tight">
           Verrai reindirizzato al pagamento sicuro. <br />
           L'annuncio sarà visibile immediatamente dopo il checkout.
@@ -555,6 +576,7 @@ export default function EmployerPage() {
   const router = useRouter();
 
   const [authChecked, setAuthChecked] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [employerId, setEmployerId] = useState<string | null>(null);
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -572,7 +594,7 @@ export default function EmployerPage() {
       if (!mounted) return;
 
       if (!user) {
-        setAuthChecked(true);
+        // setAuthChecked(true);
         router.replace("/");
         return;
       }
@@ -592,6 +614,7 @@ export default function EmployerPage() {
       }
 
       setEmployerId(user.id);
+      setLoading(false);
 
       // 1) load businesses
       const { data: bList, error: bErr } = await supabase
@@ -671,25 +694,19 @@ export default function EmployerPage() {
   // };
 
   if (!authChecked) {
-    return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="bg-white border rounded-2xl px-5 py-4 shadow-sm">
-          Caricamento…
-        </div>
-      </div>
-    );
+    return null;
   }
-
+  if (loading) return null;
   if (!employerId) return null;
 
   return (
-<EmployerPanel
-  businesses={businesses}
-  selectedBusinessId={selectedBusinessId}
-  setSelectedBusinessId={setSelectedBusinessId}
-  useBusiness={useBusiness}
-  setUseBusiness={setUseBusiness}
-  jobs={jobs}
-/>
+    <EmployerPanel
+      businesses={businesses}
+      selectedBusinessId={selectedBusinessId}
+      setSelectedBusinessId={setSelectedBusinessId}
+      useBusiness={useBusiness}
+      setUseBusiness={setUseBusiness}
+      jobs={jobs}
+    />
   );
 }

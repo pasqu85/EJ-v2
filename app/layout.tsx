@@ -32,7 +32,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <MantineProviderClient>
           <main className="relative z-10">
-            <DynamicBackground />
             <AuthListener />
 
             {/* ✅ IMPORTANTISSIMO: AppShell usa useSearchParams */}

@@ -13,7 +13,7 @@ import JobDetailsSheet from "@/components/JobDetailsSheet";
 
 import { STORAGE_KEYS } from "@/app/lib/storageKeys";
 import { MiniCalendar, DatePickerInput } from "@mantine/dates";
-import { NativeSelect } from "@mantine/core";
+import { NativeSelect, TextInput } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { supabase } from "./lib/supabaseClient";
 import BottomBar from "@/components/BottomBar";
@@ -32,6 +32,8 @@ export type Job = {
   startDate: Date;
   endDate: Date;
   pay: string;
+  businessName?: string;  
+  business_name?: string;
 };
 
 // -------------------------
@@ -102,6 +104,7 @@ function EmployerPanel({
   const [role, setRole] = useState("");
   const [location, setLocation] = useState("");
   const [pay, setPay] = useState("");
+  const [businessName, setBusinessName] = useState('');
 
   // UI state (string, mobile friendly)
   const [startDay, setStartDay] = useState<string | null>(todayYMD());
@@ -111,7 +114,7 @@ function EmployerPanel({
   const [endTime, setEndTime] = useState<string>("11:00");
 
   const handleSubmit = () => {
-    if (!role || !location || !pay) {
+    if (!role || !location || !pay || !businessName) {
       alert("Compila tutti i campi.");
       return;
     }
@@ -128,7 +131,7 @@ function EmployerPanel({
       return;
     }
 
-    onAddJob({ role, location, startDate: s, endDate: e, pay });
+    onAddJob({ role, location, startDate: s, endDate: e, pay, businessName });
 
     // reset
     setRole("");
@@ -138,6 +141,7 @@ function EmployerPanel({
     setEndDay(todayYMD());
     setStartTime("09:00");
     setEndTime("11:00");
+    setBusinessName("")
 
     alert("Lavoro pubblicato ✅");
   };
@@ -230,6 +234,14 @@ function EmployerPanel({
         onChange={(e) => setRole(e.target.value)}
         className="w-full p-3 !rounded-xl border outline-none"
       />
+      <TextInput
+        label="Nome Attività / Azienda"
+        placeholder="Es: Bar Centrale, Ristorante Da Giggi..."
+        value={businessName} // Usa la variabile dello stato
+        onChange={(event) => setBusinessName(event.currentTarget.value)} // Aggiorna lo stato
+        required
+        mb="md"
+      />  
 
       <input
         placeholder="Luogo"
@@ -426,29 +438,26 @@ export default function Home() {
   // -------------------------
   // LOADERS (DB)
   // -------------------------
-  async function loadJobsFromDb() {
-    const { data, error } = await supabase
-      .from("jobs")
-      .select("id, role, location, pay, start_date, end_date")
-      .order("created_at", { ascending: false });
+async function loadJobsFromDb() {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("id, role, location, pay, start_date, end_date, business_name") // business_name deve esistere in DB
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("loadJobsFromDb error:", error);
-      return;
-    }
+  if (error) return;
 
-    const mapped: Job[] =
-      (data ?? []).map((j: any) => ({
-        id: j.id,
-        role: j.role,
-        location: j.location,
-        pay: j.pay,
-        startDate: new Date(j.start_date),
-        endDate: new Date(j.end_date),
-      })) ?? [];
+  const mapped: Job[] = (data ?? []).map((j: any) => ({
+    id: j.id,
+    role: j.role,
+    location: j.location,
+    pay: j.pay,
+    startDate: new Date(j.start_date), // Fondamentale per le ore
+    endDate: new Date(j.end_date),     // Fondamentale per le ore
+    business_name: j.business_name,
+  }));
 
-    setJobs(mapped);
-  }
+  setJobs(mapped);
+}
 
   async function loadAppliedFromDb(userId: string) {
     const { data, error } = await supabase
@@ -681,31 +690,26 @@ export default function Home() {
     }
   };
 
-  const addJob = async (job: Omit<Job, "id">) => {
-    // solo employer loggato
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth.user;
-    if (!user) return;
+const addJob = async (job: Omit<Job, "id">) => {
+  const { data: auth } = await supabase.auth.getUser();
+  const user = auth.user;
+  if (!user) return;
 
-    const payload = {
-      employer_id: user.id,
-      role: job.role,
-      location: job.location,
-      pay: job.pay,
-      start_date: job.startDate.toISOString(),
-      end_date: job.endDate.toISOString(),
-    };
-
-    // const { error } = await supabase.from("jobs").insert(payload);
-
-    // if (error) {
-    //   console.error("addJob error:", error);
-    //   alert("Errore pubblicazione lavoro");
-    //   return;
-    // }
-
-    await loadJobsFromDb();
+  // Qui usiamo 'businessName' che arriva dal tuo stato del Form
+  const payload = {
+    employer_id: user.id,
+    role: job.role,
+    location: job.location,
+    pay: job.pay,
+    start_date: job.startDate.toISOString(),
+    end_date: job.endDate.toISOString(),
+    business_name: job.businessName, // Mappa businessName del form su business_name del DB
   };
+
+  // Se usi Stripe, ricordati di passare 'payload' alla tua API di checkout qui
+  
+  await loadJobsFromDb();
+};
 
   function openSearch() {
     setIsSearchOpen(true);
@@ -721,7 +725,7 @@ export default function Home() {
       // STEP 1: scelta
       if (!entryChoice) {
         return (
-          <div className="min-h-[85vh] flex items-center justify-center p-6 bg-slate-50/50">
+          <div className="min-h-[100vh] flex items-center justify-center p-6 bg-slate-50/50">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -854,17 +858,17 @@ export default function Home() {
     // }
 
     if (isLoggedIn && userRole === "worker") {
-  return (
-    <WorkerPanel
-      jobs={jobs}
-      appliedJobs={appliedJobs}
-      isLoggedIn={isLoggedIn}
-      searchQuery={searchQuery}
-      onApply={handleApply}
-      onSelectJob={(job) => setSelectedJob(job)}
-    />
-  );
-}
+      return (
+        <WorkerPanel
+          jobs={jobs}
+          appliedJobs={appliedJobs}
+          isLoggedIn={isLoggedIn}
+          searchQuery={searchQuery}
+          onApply={handleApply}
+          onSelectJob={(job) => setSelectedJob(job)}
+        />
+      );
+    }
 
     // employer (questa parte teoricamente non la vedi perché redirect /employer)
     if (isLoggedIn && userRole === "employer") {

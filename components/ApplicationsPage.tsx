@@ -21,6 +21,7 @@ type Job = {
   startDate: Date | string;
   endDate: Date | string;
   notes?: string;
+  businessName?: string;
 };
 
 type JobRow = {
@@ -32,6 +33,7 @@ type JobRow = {
   end_date: string;
   business_name?: string | null;
   business_address?: string | null;
+  businessName?: string;
 };
 
 type ApplicationRow = {
@@ -46,6 +48,7 @@ type ApplicationRow = {
     start_date: string;
     end_date: string;
     business_name?: string | null;
+    businessName?: string;
     business_address?: string | null;
   } | null;
 };
@@ -58,9 +61,11 @@ function toJob(app: ApplicationRow): Job | null {
     role: app.job.role,
     location: app.job.business_address || app.job.location,
     pay: app.job.pay,
+    // Assicuriamoci che siano oggetti Date per poter estrarre le ore dopo
     startDate: new Date(app.job.start_date),
     endDate: new Date(app.job.end_date),
-    notes: app.job.business_name ? `Attività: ${app.job.business_name}` : undefined,
+    // Aggiungiamo il campo per il nome attività se vuoi usarlo direttamente
+    businessName: app.job.business_name || undefined,
   };
 }
 
@@ -115,7 +120,7 @@ export default function ApplicationsPage() {
       const safe = (data ?? []) as unknown as ApplicationRow[];
       setApps(safe);
       setLoading(false);
-      
+
     } catch (e) {
       console.error(e);
       if (aliveRef.current) setLoading(false);
@@ -135,14 +140,14 @@ export default function ApplicationsPage() {
     };
   }, []);
 
-const jobsData = useMemo(() => {
-  return apps
-    .map((app) => ({
-      job: toJob(app),
-      appliedAt: new Date(app.created_at),
-    }))
-    .filter((item): item is { job: Job; appliedAt: Date } => item.job !== null);
-}, [apps]);
+  const jobsData = useMemo(() => {
+    return apps
+      .map((app) => ({
+        job: toJob(app),
+        appliedAt: new Date(app.created_at),
+      }))
+      .filter((item): item is { job: Job; appliedAt: Date } => item.job !== null);
+  }, [apps]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-24">
@@ -186,36 +191,52 @@ const jobsData = useMemo(() => {
           <div className="space-y-4">
             {jobsData.map(({ job, appliedAt }) => (
               <button
-                key={job!.id}
+                key={job.id}
                 onClick={() => setSelectedJob(job)}
-                className="w-full text-left bg-white !rounded-[24px] p-5 border border-slate-100 shadow-sm active:scale-[0.98] transition-all hover:border-emerald-100"
+                className="mb-4 w-full text-left bg-white !rounded-[24px] p-5 border border-slate-100 shadow-sm active:scale-[0.98] transition-all hover:border-emerald-100"
               >
                 <div className="flex justify-between items-start mb-3">
-                  <div className="w-12 h-12 !rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <IconBriefcase size={22} stroke={2.5} />
+                  <div className="flex flex-col gap-1">
+                    {/* NOME ATTIVITÀ IN EVIDENZA */}
+                    {job.businessName && (
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                        {job.businessName}
+                      </span>
+                    )}
+                    <div className="w-12 h-12 !rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <IconBriefcase size={22} stroke={2.5} />
+                    </div>
                   </div>
-<div className="px-3 py-1.5 !rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-600">
-  Inviata
-</div>
+                  <div className="px-3 py-1.5 !rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-600">
+                    Inviata
+                  </div>
                 </div>
 
                 <div className="space-y-1">
-                  <h2 className="text-lg font-black text-slate-900 leading-tight">{job!.role}</h2>
+                  <h2 className="text-lg font-black text-slate-900 leading-tight">{job.role}</h2>
                   <div className="flex items-center gap-1.5 text-slate-500">
                     <IconMapPin size={14} />
-                    <span className="text-xs font-medium">{job!.location}</span>
+                    <span className="text-xs font-medium">{job.location}</span>
                   </div>
                 </div>
 
+                {/* ORARI DI LAVORO E DATA */}
                 <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-slate-400">
-                    <IconCalendarEvent size={14} />
-                    <span className="text-[11px] font-semibold">
-                      {appliedAt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
-                    </span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <IconCalendarEvent size={14} />
+                      <span className="text-[11px] font-semibold">
+                        {appliedAt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                      </span>
+                    </div>
+                    {/* AGGIUNTO: ORA INIZIO E FINE */}
+                    <div className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 !rounded-md w-fit">
+                      {new Date(job.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(job.endDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </div>
+
                   <div className="text-sm font-black text-emerald-600">
-                    {job!.pay}
+                    {job.pay} €
                   </div>
                 </div>
               </button>

@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/app/lib/supabaseClient";
 import clsx from "clsx";
 import {
   IconHome,
@@ -9,14 +11,12 @@ import {
   IconUserCircle,
   IconChevronLeft,
 } from "@tabler/icons-react";
-import type { Transition } from "framer-motion";
 
 const ONEUI_SPRING = { type: "spring", stiffness: 900, damping: 70, mass: 0.7 } as const;
 
-
-
 export type Tab = "home" | "applications" | "search" | "profile";
 
+// ✅ DEFINIZIONE DI ALLTABS (Spostata qui per essere accessibile)
 const allTabs: {
   id: Tab;
   Icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>;
@@ -39,6 +39,42 @@ export default function BottomBar({
   onBackHome: () => void;
 }) {
   const isHome = activeTab === "home";
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // RECUPERA L'AVATAR
+  useEffect(() => {
+    async function getAvatar() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+      }
+    }
+
+    getAvatar();
+
+    // Ascolta i cambiamenti nel profilo per aggiornare la foto live
+    const channel = supabase
+      .channel('profile-changes')
+      .on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'profiles' }, 
+        (payload) => {
+          if (payload.new.avatar_url) {
+            setAvatarUrl(payload.new.avatar_url);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60]">
@@ -59,10 +95,8 @@ export default function BottomBar({
             transition={ONEUI_SPRING}
             className={clsx("flex items-center", isHome ? "px-6 py-3 gap-6" : "px-3 py-2 gap-3")}
           >
-            {/* ✅ popLayout gestisce meglio gli spostamenti quando un item esce */}
             <AnimatePresence initial={false} mode="popLayout">
               {allTabs.map(({ id, Icon }) => {
-                // fuori home: il tab "home" esce con animazione (non sparisce “di colpo”)
                 if (!isHome && id === "home") return null;
 
                 const active = activeTab === id;
@@ -83,12 +117,26 @@ export default function BottomBar({
                     }}
                     className={clsx(
                       btnSize,
-                      "!rounded-full flex items-center justify-center transition",
-                      active ? "bg-emerald-500 text-white bg-emerald-500 bg-linear-to-r from-emerald-700 to-emerald-400" : "text-gray-500 hover:bg-white/40 "
+                      "!rounded-full flex items-center justify-center transition overflow-hidden relative",
+                      active && id !== "profile" 
+                        ? "bg-emerald-500 text-white bg-linear-to-r from-emerald-700 to-emerald-400" 
+                        : "text-gray-500 hover:bg-white/40 "
                     )}
                     aria-label={id}
                   >
-                    <Icon size={isHome ? 24 : 22} stroke={active ? 2.2 : 1.9} />
+                    {/* LOGICA AVATAR VS ICONA */}
+                    {id === "profile" && avatarUrl ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt="Profilo" 
+                        className={clsx(
+                          "w-full h-full object-cover rounded-full",
+                          active ? "border-2 border-emerald-500 scale-110" : "opacity-80"
+                        )} 
+                      />
+                    ) : (
+                      <Icon size={isHome ? 24 : 22} stroke={active ? 2.2 : 1.9} />
+                    )}
                   </motion.button>
                 );
               })}

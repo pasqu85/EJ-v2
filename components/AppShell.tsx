@@ -53,11 +53,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen relative">
       {/* ✅ Badge versione (sempre visibile) */}
-      <div className="fixed top-3 left-3 z-[9999] pointer-events-none">
+      {/* <div className="fixed top-3 left-3 z-[9999] pointer-events-none">
         <div className="px-3 py-1 text-xs font-semibold rounded-lg bg-black/70 text-white backdrop-blur shadow">
           {APP_VERSION}
         </div>
-      </div>
+      </div> */}
 
       {/* contenuto */}
       {children}
