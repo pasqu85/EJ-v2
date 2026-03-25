@@ -6,6 +6,7 @@ import { DatePickerInput } from "@mantine/dates";
 import { IconClock, IconBuildingStore, IconMapPin } from "@tabler/icons-react";
 import { supabase } from "@/app/lib/supabaseClient";
 import { TextInput } from "@mantine/core";
+import { TimeInput } from "@mantine/dates";
 
 type Business = {
   id: string;
@@ -55,15 +56,15 @@ function combineDayAndTime(day: Date, hhmm: string) {
   return out;
 }
 
-function openTimePicker(ref: React.RefObject<HTMLInputElement | null>) {
-  const el = ref.current;
-  if (!el) return;
-  if ("showPicker" in el && typeof (el as any).showPicker === "function") {
-    (el as any).showPicker();
-  } else {
-    el.click();
-  }
-}
+// function openTimePicker(ref: React.RefObject<HTMLInputElement | null>) {
+//   const el = ref.current;
+//   if (!el) return;
+//   if ("showPicker" in el && typeof (el as any).showPicker === "function") {
+//     (el as any).showPicker();
+//   } else {
+//     el.click();
+//   }
+// }
 
 function formatHHMM(d: Date) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -120,8 +121,8 @@ function EmployerPanel({
   const [startTime, setStartTime] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
 
-  const startTimeRef = useRef<HTMLInputElement>(null);
-  const endTimeRef = useRef<HTMLInputElement>(null);
+  // const startTimeRef = useRef<HTMLInputElement>(null);
+  // const endTimeRef = useRef<HTMLInputElement>(null);
 
   const selectedBusiness = useMemo(
     () => businesses.find((b) => b.id === selectedBusinessId) ?? null,
@@ -370,90 +371,98 @@ function EmployerPanel({
       )}
 
       {/* DATE + TIME */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 mt-2">
-        <div className="space-y-2">
-          <DatePickerInput
-            label="Data inizio"
-            variant="filled"
-            radius="xl"
-            dropdownType="modal"
-            value={startDay}
-            onChange={(v) => setStartDay(v as unknown as Date | null)}
-          />
-          <button
-            type="button"
-            onClick={() => openTimePicker(startTimeRef)}
-            className="group w-full !rounded-2xl border border-white/50 bg-white/70 backdrop-blur-xl shadow-sm px-4 py-3 flex items-center justify-between active:scale-[0.99] transition"
-          >
-            <div className="flex items-center gap-3">
-              <span className="h-10 w-10 !rounded-full bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
-                <IconClock size={20} />
-              </span>
-              <div className="text-left">
-                <div className="text-xs text-gray-500">Ora inizio</div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {startTime ? startTime : "Seleziona"}
-                </div>
-              </div>
-            </div>
-            {startTime && (
-              <span className="text-xs font-semibold px-3 py-1 !rounded-full bg-emerald-500 text-white">
-                OK
-              </span>
-            )}
-          </button>
-          <input
-            ref={startTimeRef}
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            step={600}
-            className="absolute opacity-0 w-px h-px pointer-events-none"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <DatePickerInput
-            label="Data fine"
-            variant="filled"
-            radius="xl"
-            dropdownType="modal"
-            value={endDay}
-            onChange={(v) => setEndDay(v as unknown as Date | null)}
-            minDate={startDay ?? undefined}
-          />
-          <button
-            type="button"
-            onClick={() => openTimePicker(endTimeRef)}
-            className="group w-full !rounded-2xl border border-white/50 bg-white/70 backdrop-blur-xl shadow-sm px-4 py-3 flex items-center justify-between active:scale-[0.99] transition"
-          >
-            <div className="flex items-center gap-3">
-              <span className="h-10 w-10 !rounded-full bg-blue-500/10 text-blue-700 flex items-center justify-center">
-                <IconClock size={20} />
-              </span>
-              <div className="text-left">
-                <div className="text-xs text-gray-500">Ora fine</div>
-                <div className="text-sm font-semibold text-gray-900">
-                  {endTime ? endTime : "Seleziona"}
-                </div>
-              </div>
-            </div>
-            {endTime && (
-              <span className="text-xs font-semibold px-3 py-1 !rounded-full bg-blue-500 text-white">
-                OK
-              </span>
-            )}
-          </button>
-          <input
-            ref={endTimeRef}
-            type="time"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            step={600}
-            className="absolute opacity-0 w-px h-px pointer-events-none"
-          />
-        </div>
+{/* DATE + TIME SELECTION */}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+  {/* START BOX */}
+  <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm space-y-3">
+    <div className="flex items-center gap-2 mb-1">
+      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+        <IconClock size={16} stroke={2.5} />
       </div>
+      <span className="text-xs font-black uppercase tracking-wider text-slate-400">Inizio Turno</span>
+    </div>
+    
+    <DatePickerInput
+      placeholder="Scegli giorno"
+      variant="filled"
+      radius="xl"
+      size="md"
+      dropdownType="modal"
+      value={startDay}
+      onChange={(v) => setStartDay(v as Date | null)}
+      className="font-medium"
+    />
+
+    <TimeInput
+      placeholder="Ora inizio"
+      value={startTime}
+      onChange={(e) => setStartTime(e.currentTarget.value)}
+      format="24"
+      radius="xl"
+      size="md"
+      variant="filled"
+      className="font-medium"
+      // Questo permette di aprire il picker cliccando sull'icona su molti browser
+      rightSection={
+        <button 
+          onClick={(e) => {
+            e.preventDefault();
+            const input = e.currentTarget.closest('.mantine-Input-wrapper')?.querySelector('input');
+            if (input && 'showPicker' in input) (input as any).showPicker();
+          }}
+          className="text-slate-400 hover:text-blue-500 transition-colors mr-2"
+        >
+          <IconClock size={18} />
+        </button>
+      }
+    />
+  </div>
+
+  {/* END BOX */}
+  <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm space-y-3">
+    <div className="flex items-center gap-2 mb-1">
+      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+        <IconClock size={16} stroke={2.5} />
+      </div>
+      <span className="text-xs font-black uppercase tracking-wider text-slate-400">Fine Turno</span>
+    </div>
+
+    <DatePickerInput
+      placeholder="Scegli giorno"
+      variant="filled"
+      radius="xl"
+      size="md"
+      dropdownType="modal"
+      value={endDay}
+      onChange={(v) => setEndDay(v as Date | null)}
+      minDate={startDay ?? undefined}
+      className="font-medium"
+    />
+
+    <TimeInput
+      placeholder="Ora fine"
+      value={endTime}
+      onChange={(e) => setEndTime(e.currentTarget.value)}
+      format="24"
+      radius="xl"
+      size="md"
+      variant="filled"
+      className="font-medium"
+      rightSection={
+        <button 
+          onClick={(e) => {
+            e.preventDefault();
+            const input = e.currentTarget.closest('.mantine-Input-wrapper')?.querySelector('input');
+            if (input && 'showPicker' in input) (input as any).showPicker();
+          }}
+          className="text-slate-400 hover:text-blue-500 transition-colors mr-2"
+        >
+          <IconClock size={18} />
+        </button>
+      }
+    />
+  </div>
+</div>
 
       {/* INPUTS */}
       {/* <TextInput

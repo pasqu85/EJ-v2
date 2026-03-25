@@ -1,5 +1,44 @@
+/* Forza la comparsa del picker su Safari iOS/macOS */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  display: block;
+  background: transparent;
+  bottom: 0;
+  color: transparent;
+  cursor: pointer;
+  height: auto;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: auto;
+}
+
+/* Impedisce lo zoom fastidioso di Safari e assicura che il tap funzioni */
+@media screen and (max-width: 768px) {
+  select, 
+  input, 
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Rende le select di Mantine più "cliccabili" su Safari */
+.mantine-NativeSelect-input {
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer !important;
+}
+
 @import "tailwindcss";
 
+
+/* Forza Safari a permettere il click sulle select di Mantine */
+.mantine-NativeSelect-input {
+  -webkit-appearance: menulist-button !important; /* Forza lo stile nativo cliccabile */
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  font-size: 16px !important; /* Evita lo zoom automatico su iPhone */
+}
 
 :root {
   --background: #ffffff;
