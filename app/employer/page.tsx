@@ -397,7 +397,6 @@ function EmployerPanel({
       placeholder="Ora inizio"
       value={startTime}
       onChange={(e) => setStartTime(e.currentTarget.value)}
-      format="24"
       radius="xl"
       size="md"
       variant="filled"
@@ -443,7 +442,6 @@ function EmployerPanel({
       placeholder="Ora fine"
       value={endTime}
       onChange={(e) => setEndTime(e.currentTarget.value)}
-      format="24"
       radius="xl"
       size="md"
       variant="filled"
