@@ -36,16 +36,25 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
   const [useBusiness, setUseBusiness] = useState(true);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(businesses[0]?.id || null);
 
-  const [formData, setFormData] = useState({
-    role: "",
-    businessName: "",
-    location: "",
-   startDay: new Date() as Date,
-    startTime: "09:00",
-    endDay: new Date() as Date,
-    endTime: "11:00",
-    pay: ""
-  });
+const [formData, setFormData] = useState<{
+  role: string;
+  businessName: string;
+  location: string;
+  startDay: Date;    // <-- Deve essere Date
+  startTime: string;
+  endDay: Date;      // <-- Deve essere Date
+  endTime: string;
+  pay: string;
+}>({
+  role: "",
+  businessName: "",
+  location: "",
+  startDay: new Date(),
+  startTime: "09:00",
+  endDay: new Date(),
+  endTime: "11:00",
+  pay: ""
+});
 
   const selectedBusiness = useMemo(
     () => businesses.find((b) => b.id === selectedBusinessId) || null,
@@ -143,20 +152,23 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
         {/* STEP 2 */}
         <Stepper.Step label="Inizio" icon={<IconClock size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
-            <DatePickerInput
-              label="Quando inizia il turno?"
-              // ... altre props
-              value={formData.startDay}
-              onChange={(d) => {
-                // Forza la conversione sicura per la build
-                const newDate = (d as unknown as Date) || new Date();
-                setFormData({
-                  ...formData,
-                  startDay: newDate,
-                  endDay: newDate // Aggiorna anche la fine per default
-                });
-              }}
-            />
+<DatePickerInput 
+  label="Quando inizia il turno?" 
+  placeholder="Scegli data" 
+  radius="xl" 
+  variant="filled" 
+  size="md"
+  value={formData.startDay} 
+  onChange={(d) => {
+    // Verifichiamo che d sia effettivamente un oggetto Date
+    const validatedDate = d instanceof Date ? d : new Date();
+    setFormData({
+      ...formData, 
+      startDay: validatedDate,
+      endDay: validatedDate // Imposta la stessa data per la fine come default
+    });
+  }} 
+/>
             <TimeInput
               label="Ora di inizio"
               radius="xl"
@@ -170,19 +182,19 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
         {/* STEP 3 */}
         <Stepper.Step label="Fine" icon={<IconCheck size={18} />}>
           <motion.div className="space-y-4 mt-5">
-            <DatePickerInput
-              label="Quando finisce?"
-              placeholder="Scegli data"
-              radius="xl"
-              variant="filled"
-              size="md"
-              value={formData.endDay || new Date()}
-              onChange={(d) => {
-                const selectedDate = (d as unknown as Date) || new Date();
-                setFormData({ ...formData, endDay: selectedDate });
-              }}
-              minDate={formData.startDay}
-            />
+<DatePickerInput 
+  label="Quando finisce?" 
+  placeholder="Scegli data" 
+  radius="xl" 
+  variant="filled" 
+  size="md"
+  value={formData.endDay} 
+  minDate={formData.startDay}
+  onChange={(d) => {
+    const validatedDate = d instanceof Date ? d : new Date();
+    setFormData({ ...formData, endDay: validatedDate });
+  }} 
+/>
             <TimeInput
               label="Ora di fine"
               radius="xl"
