@@ -12,7 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 
-// --- INTERFACCIA STATO ---
+// --- INTERFACCIA RIGIDA PER TYPESCRIPT ---
 interface FormDataState {
   role: string;
   businessName: string;
@@ -35,7 +35,6 @@ interface AddJobStepperProps {
   onComplete: (data: any) => void;
 }
 
-// Helper per combinare data e ora
 function combineDayAndTime(day: Date, hhmm: string) {
   const [hh, mm] = hhmm.split(":").map(Number);
   const out = new Date(day);
@@ -48,7 +47,6 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
   const [useBusiness, setUseBusiness] = useState(true);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(businesses[0]?.id || null);
 
-  // Inizializzazione con tipi espliciti
   const [formData, setFormData] = useState<FormDataState>({
     role: "",
     businessName: "",
@@ -74,44 +72,39 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
       return;
     }
 
-    const finalData = {
+    onComplete({
       role: formData.role.trim(),
       location: useBusiness && selectedBusiness ? selectedBusiness.address : formData.location,
       pay: formData.pay.trim(),
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
-      business: useBusiness && selectedBusiness ? selectedBusiness : null,
       businessName: useBusiness && selectedBusiness ? selectedBusiness.name : formData.businessName,
-    };
-
-    onComplete(finalData);
+    });
   };
 
   return (
     <Box>
       <Stepper active={active} onStepClick={setActive} color="blue" radius="xl" size="sm" allowNextStepsSelect={false}>
-
+        
         {/* STEP 1: AZIENDA */}
         <Stepper.Step label="Azienda" icon={<IconBuildingStore size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
             <TextInput
               label="Che figura cerchi?"
-              placeholder="Es: Cameriere, Barman..."
+              placeholder="Es: Cameriere..."
               radius="xl"
               variant="filled"
               size="md"
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
             />
-
             <div className="flex justify-between items-center mt-6">
-              <Text size="xs" fw={900} c="dimmed" className="tracking-widest">DOVE?</Text>
+              <Text size="xs" fw={900} c="dimmed">DOVE?</Text>
               <Button variant="subtle" size="compact-xs" onClick={() => setUseBusiness(!useBusiness)}>
                 {useBusiness ? "Scrivi indirizzo" : "Scegli attività"}
               </Button>
             </div>
-
-            {useBusiness && businesses.length > 0 ? (
+            {useBusiness ? (
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 {businesses.map((b) => (
                   <Paper
@@ -120,10 +113,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
                     radius="xl"
                     withBorder
                     onClick={() => setSelectedBusinessId(b.id)}
-                    className={`cursor-pointer min-w-[180px] transition-all ${selectedBusinessId === b.id
-                      ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-100'
-                      : 'border-slate-100'
-                      }`}
+                    className={`cursor-pointer min-w-[180px] transition-all ${selectedBusinessId === b.id ? 'border-blue-500 bg-blue-50/50' : 'border-slate-100'}`}
                   >
                     <Text fw={800} size="sm" className="truncate">{b.name}</Text>
                     <Text size="xs" c="dimmed" className="truncate">{b.address}</Text>
@@ -132,43 +122,26 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               </div>
             ) : (
               <Stack gap="xs">
-                <TextInput
-                  placeholder="Nome Attività"
-                  radius="xl"
-                  variant="filled"
-                  value={formData.businessName}
-                  onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                />
-                <TextInput
-                  placeholder="Indirizzo completo"
-                  radius="xl"
-                  variant="filled"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                />
+                <TextInput placeholder="Nome Attività" radius="xl" variant="filled" value={formData.businessName} onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))} />
+                <TextInput placeholder="Indirizzo completo" radius="xl" variant="filled" value={formData.location} onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))} />
               </Stack>
             )}
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 2: INIZIO */}
+        {/* STEP 2: INIZIO (SOLUZIONE ERRORE RIGA 113) */}
         <Stepper.Step label="Inizio" icon={<IconClock size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
             <DatePickerInput 
               label="Quando inizia il turno?" 
-              placeholder="Scegli data" 
               radius="xl" 
               variant="filled" 
               size="md"
               value={formData.startDay} 
-              onChange={(d) => {
-                // Risoluzione errore Vercel: d può essere Date, Date[] o null
-                const validDate = d instanceof Date ? d : new Date();
-                setFormData({
-                  ...formData, 
-                  startDay: validDate,
-                  endDay: validDate 
-                });
+              onChange={(value) => {
+                // Forziamo il tipo Date in modo che TypeScript non possa confondersi
+                const dateValue = value instanceof Date ? value : new Date();
+                setFormData(prev => ({ ...prev, startDay: dateValue, endDay: dateValue }));
               }} 
             />
             <TimeInput
@@ -176,7 +149,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               radius="xl"
               variant="filled"
               value={formData.startTime}
-              onChange={(e) => setFormData({ ...formData, startTime: e.currentTarget.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.currentTarget.value }))}
             />
           </motion.div>
         </Stepper.Step>
@@ -186,15 +159,14 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           <motion.div className="space-y-4 mt-5">
             <DatePickerInput 
               label="Quando finisce?" 
-              placeholder="Scegli data" 
               radius="xl" 
               variant="filled" 
               size="md"
               value={formData.endDay} 
               minDate={formData.startDay}
-              onChange={(d) => {
-                const validDate = d instanceof Date ? d : new Date();
-                setFormData({ ...formData, endDay: validDate });
+              onChange={(value) => {
+                const dateValue = value instanceof Date ? value : new Date();
+                setFormData(prev => ({ ...prev, endDay: dateValue }));
               }} 
             />
             <TimeInput
@@ -202,7 +174,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               radius="xl"
               variant="filled"
               value={formData.endTime}
-              onChange={(e) => setFormData({ ...formData, endTime: e.currentTarget.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.currentTarget.value }))}
             />
           </motion.div>
         </Stepper.Step>
@@ -217,19 +189,12 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               size="lg"
               variant="filled"
               value={formData.pay}
-              onChange={(e) => setFormData({ ...formData, pay: e.target.value })}
+              onChange={(e) => setFormData(prev => ({ ...prev, pay: e.target.value }))}
             />
-
-            <Paper p="xl" radius="2rem" className="bg-slate-900 text-white shadow-2xl">
+            <Paper p="xl" radius="2rem" className="bg-slate-900 text-white">
               <Stack gap={5}>
-                <Text size="xl" fw={900} c="white">{formData.role || "Ruolo"}</Text>
-                <div className="flex gap-2 text-sm text-slate-300">
-                  <span>
-                    {formData.startDay.toLocaleDateString('it-IT')}
-                  </span>
-                  <IconArrowRight size={12} />
-                  <span>{formData.startTime} - {formData.endTime}</span>
-                </div>
+                <Text size="xl" fw={900}>{formData.role || "Ruolo"}</Text>
+                <Text size="sm" c="slate.3">{formData.startDay.toLocaleDateString('it-IT')} • {formData.startTime} - {formData.endTime}</Text>
                 <Text size="lg" fw={900} c="blue.4">{formData.pay || "0"} €</Text>
               </Stack>
             </Paper>
@@ -239,26 +204,22 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
 
       <Group justify="space-between" mt="2rem">
         <Button 
-          variant="subtle"
+          variant="subtle" 
           onClick={() => setActive(active - 1)} 
-          disabled={active === 0}
+          disabled={active === 0} 
           radius="xl"
-          size="md"
-          className="!bg-transparent hover:!bg-slate-100 !text-slate-500 font-black tracking-tight"
+          className="!bg-transparent !text-slate-500 font-bold"
         >
           Indietro
         </Button>
-
         {active < 3 ? (
           <Button
             onClick={() => setActive(active + 1)}
             disabled={active === 0 && !formData.role}
             variant="subtle"
-            color="blue"
             radius="xl"
-            size="md"
             rightSection={<IconArrowRight size={18} />}
-            className="!bg-transparent hover:!bg-blue-50 !text-blue-600 font-black tracking-tight"
+            className="!bg-transparent !text-blue-600 font-bold"
           >
             Continua
           </Button>
@@ -268,11 +229,10 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
             variant="subtle"
             color="emerald"
             radius="xl"
-            size="lg"
             leftSection={<IconCheck size={20} />}
-            className="!bg-transparent hover:!bg-emerald-50 !text-emerald-600 font-black tracking-tighter"
+            className="!bg-transparent !text-emerald-600 font-bold"
           >
-            Paga e Pubblica
+            Pubblica
           </Button>
         )}
       </Group>
