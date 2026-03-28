@@ -40,9 +40,9 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
     role: "",
     businessName: "",
     location: "",
-    startDay: new Date() as Date | null,
+   startDay: new Date() as Date,
     startTime: "09:00",
-    endDay: new Date() as Date | null,
+    endDay: new Date() as Date,
     endTime: "11:00",
     pay: ""
   });
@@ -110,8 +110,8 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
                     withBorder
                     onClick={() => setSelectedBusinessId(b.id)}
                     className={`cursor-pointer min-w-[180px] transition-all ${selectedBusinessId === b.id
-                        ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-100'
-                        : 'border-slate-100'
+                      ? 'border-blue-500 bg-blue-50/50 ring-2 ring-blue-100'
+                      : 'border-slate-100'
                       }`}
                   >
                     <Text fw={800} size="sm" className="truncate">{b.name}</Text>
@@ -145,15 +145,17 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
             <DatePickerInput
               label="Quando inizia il turno?"
-              radius="xl"
-              variant="filled"
+              // ... altre props
               value={formData.startDay}
-              onChange={(d) =>
+              onChange={(d) => {
+                // Forza la conversione sicura per la build
+                const newDate = (d as unknown as Date) || new Date();
                 setFormData({
                   ...formData,
-                  startDay: d as Date | null,
-                })
-              }
+                  startDay: newDate,
+                  endDay: newDate // Aggiorna anche la fine per default
+                });
+              }}
             />
             <TimeInput
               label="Ora di inizio"
@@ -170,11 +172,16 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           <motion.div className="space-y-4 mt-5">
             <DatePickerInput
               label="Quando finisce?"
+              placeholder="Scegli data"
               radius="xl"
               variant="filled"
-              value={formData.endDay}
-              minDate={formData.startDay ?? undefined}
-              onChange={(d) => setFormData({ ...formData, endDay: d as Date | null })}
+              size="md"
+              value={formData.endDay || new Date()}
+              onChange={(d) => {
+                const selectedDate = (d as unknown as Date) || new Date();
+                setFormData({ ...formData, endDay: selectedDate });
+              }}
+              minDate={formData.startDay}
             />
             <TimeInput
               label="Ora di fine"
