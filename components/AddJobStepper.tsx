@@ -12,7 +12,6 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 
-// --- INTERFACCIA RIGIDA PER TYPESCRIPT ---
 interface FormDataState {
   role: string;
   businessName: string;
@@ -86,7 +85,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
     <Box>
       <Stepper active={active} onStepClick={setActive} color="blue" radius="xl" size="sm" allowNextStepsSelect={false}>
         
-        {/* STEP 1: AZIENDA */}
+        {/* STEP 1 */}
         <Stepper.Step label="Azienda" icon={<IconBuildingStore size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
             <TextInput
@@ -98,12 +97,14 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               value={formData.role}
               onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
             />
+
             <div className="flex justify-between items-center mt-6">
               <Text size="xs" fw={900} c="dimmed">DOVE?</Text>
               <Button variant="subtle" size="compact-xs" onClick={() => setUseBusiness(!useBusiness)}>
                 {useBusiness ? "Scrivi indirizzo" : "Scegli attività"}
               </Button>
             </div>
+
             {useBusiness ? (
               <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                 {businesses.map((b) => (
@@ -129,21 +130,26 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 2: INIZIO (SOLUZIONE ERRORE RIGA 113) */}
+        {/* STEP 2 */}
         <Stepper.Step label="Inizio" icon={<IconClock size={18} />}>
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
-            <DatePickerInput 
-              label="Quando inizia il turno?" 
-              radius="xl" 
-              variant="filled" 
+          <motion.div className="space-y-4 mt-5">
+            <DatePickerInput
+              label="Quando inizia il turno?"
+              radius="xl"
+              variant="filled"
               size="md"
-              value={formData.startDay} 
+              value={formData.startDay}
               onChange={(value) => {
-                // Forziamo il tipo Date in modo che TypeScript non possa confondersi
-                const dateValue = value instanceof Date ? value : new Date();
-                setFormData(prev => ({ ...prev, startDay: dateValue, endDay: dateValue }));
-              }} 
+                if (value instanceof Date) {
+                  setFormData(prev => ({
+                    ...prev,
+                    startDay: value,
+                    endDay: value
+                  }));
+                }
+              }}
             />
+
             <TimeInput
               label="Ora di inizio"
               radius="xl"
@@ -154,21 +160,23 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 3: FINE */}
+        {/* STEP 3 */}
         <Stepper.Step label="Fine" icon={<IconCheck size={18} />}>
           <motion.div className="space-y-4 mt-5">
-            <DatePickerInput 
-              label="Quando finisce?" 
-              radius="xl" 
-              variant="filled" 
+            <DatePickerInput
+              label="Quando finisce?"
+              radius="xl"
+              variant="filled"
               size="md"
-              value={formData.endDay} 
+              value={formData.endDay}
               minDate={formData.startDay}
               onChange={(value) => {
-                const dateValue = value instanceof Date ? value : new Date();
-                setFormData(prev => ({ ...prev, endDay: dateValue }));
-              }} 
+                if (value instanceof Date) {
+                  setFormData(prev => ({ ...prev, endDay: value }));
+                }
+              }}
             />
+
             <TimeInput
               label="Ora di fine"
               radius="xl"
@@ -179,7 +187,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 4: PAGA */}
+        {/* STEP 4 */}
         <Stepper.Step label="Paga" icon={<IconCash size={18} />}>
           <motion.div className="space-y-6 mt-5">
             <TextInput
@@ -191,10 +199,13 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               value={formData.pay}
               onChange={(e) => setFormData(prev => ({ ...prev, pay: e.target.value }))}
             />
+
             <Paper p="xl" radius="2rem" className="bg-slate-900 text-white">
               <Stack gap={5}>
                 <Text size="xl" fw={900}>{formData.role || "Ruolo"}</Text>
-                <Text size="sm" c="slate.3">{formData.startDay.toLocaleDateString('it-IT')} • {formData.startTime} - {formData.endTime}</Text>
+                <Text size="sm" c="slate.3">
+                  {formData.startDay.toLocaleDateString('it-IT')} • {formData.startTime} - {formData.endTime}
+                </Text>
                 <Text size="lg" fw={900} c="blue.4">{formData.pay || "0"} €</Text>
               </Stack>
             </Paper>
@@ -203,15 +214,10 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
       </Stepper>
 
       <Group justify="space-between" mt="2rem">
-        <Button 
-          variant="subtle" 
-          onClick={() => setActive(active - 1)} 
-          disabled={active === 0} 
-          radius="xl"
-          className="!bg-transparent !text-slate-500 font-bold"
-        >
+        <Button variant="subtle" onClick={() => setActive(active - 1)} disabled={active === 0} radius="xl">
           Indietro
         </Button>
+
         {active < 3 ? (
           <Button
             onClick={() => setActive(active + 1)}
@@ -219,7 +225,6 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
             variant="subtle"
             radius="xl"
             rightSection={<IconArrowRight size={18} />}
-            className="!bg-transparent !text-blue-600 font-bold"
           >
             Continua
           </Button>
@@ -230,7 +235,6 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
             color="emerald"
             radius="xl"
             leftSection={<IconCheck size={20} />}
-            className="!bg-transparent !text-emerald-600 font-bold"
           >
             Pubblica
           </Button>
