@@ -12,6 +12,8 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 
+console.log("NUOVA VERSIONE STEP");
+
 interface FormDataState {
   role: string;
   businessName: string;
