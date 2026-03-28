@@ -12,12 +12,16 @@ import {
 } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 
-// Helper
-function combineDayAndTime(day: Date, hhmm: string) {
-  const [hh, mm] = hhmm.split(":").map(Number);
-  const out = new Date(day);
-  out.setHours(hh || 0, mm || 0, 0, 0);
-  return out;
+// --- INTERFACCIA STATO ---
+interface FormDataState {
+  role: string;
+  businessName: string;
+  location: string;
+  startDay: Date;
+  startTime: string;
+  endDay: Date;
+  endTime: string;
+  pay: string;
 }
 
 interface Business {
@@ -31,30 +35,30 @@ interface AddJobStepperProps {
   onComplete: (data: any) => void;
 }
 
+// Helper per combinare data e ora
+function combineDayAndTime(day: Date, hhmm: string) {
+  const [hh, mm] = hhmm.split(":").map(Number);
+  const out = new Date(day);
+  out.setHours(hh || 0, mm || 0, 0, 0);
+  return out;
+}
+
 export default function AddJobStepper({ businesses, onComplete }: AddJobStepperProps) {
   const [active, setActive] = useState(0);
   const [useBusiness, setUseBusiness] = useState(true);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(businesses[0]?.id || null);
 
-const [formData, setFormData] = useState<{
-  role: string;
-  businessName: string;
-  location: string;
-  startDay: Date;    // <-- Deve essere Date
-  startTime: string;
-  endDay: Date;      // <-- Deve essere Date
-  endTime: string;
-  pay: string;
-}>({
-  role: "",
-  businessName: "",
-  location: "",
-  startDay: new Date(),
-  startTime: "09:00",
-  endDay: new Date(),
-  endTime: "11:00",
-  pay: ""
-});
+  // Inizializzazione con tipi espliciti
+  const [formData, setFormData] = useState<FormDataState>({
+    role: "",
+    businessName: "",
+    location: "",
+    startDay: new Date(),
+    startTime: "09:00",
+    endDay: new Date(),
+    endTime: "11:00",
+    pay: ""
+  });
 
   const selectedBusiness = useMemo(
     () => businesses.find((b) => b.id === selectedBusinessId) || null,
@@ -62,8 +66,6 @@ const [formData, setFormData] = useState<{
   );
 
   const handleFinalSubmit = () => {
-    if (!formData.startDay || !formData.endDay) return;
-
     const startDate = combineDayAndTime(formData.startDay, formData.startTime);
     const endDate = combineDayAndTime(formData.endDay, formData.endTime);
 
@@ -89,7 +91,7 @@ const [formData, setFormData] = useState<{
     <Box>
       <Stepper active={active} onStepClick={setActive} color="blue" radius="xl" size="sm" allowNextStepsSelect={false}>
 
-        {/* STEP 1 */}
+        {/* STEP 1: AZIENDA */}
         <Stepper.Step label="Azienda" icon={<IconBuildingStore size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
             <TextInput
@@ -149,26 +151,26 @@ const [formData, setFormData] = useState<{
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 2 */}
+        {/* STEP 2: INIZIO */}
         <Stepper.Step label="Inizio" icon={<IconClock size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
-<DatePickerInput 
-  label="Quando inizia il turno?" 
-  placeholder="Scegli data" 
-  radius="xl" 
-  variant="filled" 
-  size="md"
-  value={formData.startDay} 
-  onChange={(d) => {
-    // Verifichiamo che d sia effettivamente un oggetto Date
-    const validatedDate = d instanceof Date ? d : new Date();
-    setFormData({
-      ...formData, 
-      startDay: validatedDate,
-      endDay: validatedDate // Imposta la stessa data per la fine come default
-    });
-  }} 
-/>
+            <DatePickerInput 
+              label="Quando inizia il turno?" 
+              placeholder="Scegli data" 
+              radius="xl" 
+              variant="filled" 
+              size="md"
+              value={formData.startDay} 
+              onChange={(d) => {
+                // Risoluzione errore Vercel: d può essere Date, Date[] o null
+                const validDate = d instanceof Date ? d : new Date();
+                setFormData({
+                  ...formData, 
+                  startDay: validDate,
+                  endDay: validDate 
+                });
+              }} 
+            />
             <TimeInput
               label="Ora di inizio"
               radius="xl"
@@ -179,22 +181,22 @@ const [formData, setFormData] = useState<{
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 3 */}
+        {/* STEP 3: FINE */}
         <Stepper.Step label="Fine" icon={<IconCheck size={18} />}>
           <motion.div className="space-y-4 mt-5">
-<DatePickerInput 
-  label="Quando finisce?" 
-  placeholder="Scegli data" 
-  radius="xl" 
-  variant="filled" 
-  size="md"
-  value={formData.endDay} 
-  minDate={formData.startDay}
-  onChange={(d) => {
-    const validatedDate = d instanceof Date ? d : new Date();
-    setFormData({ ...formData, endDay: validatedDate });
-  }} 
-/>
+            <DatePickerInput 
+              label="Quando finisce?" 
+              placeholder="Scegli data" 
+              radius="xl" 
+              variant="filled" 
+              size="md"
+              value={formData.endDay} 
+              minDate={formData.startDay}
+              onChange={(d) => {
+                const validDate = d instanceof Date ? d : new Date();
+                setFormData({ ...formData, endDay: validDate });
+              }} 
+            />
             <TimeInput
               label="Ora di fine"
               radius="xl"
@@ -205,7 +207,7 @@ const [formData, setFormData] = useState<{
           </motion.div>
         </Stepper.Step>
 
-        {/* STEP 4 */}
+        {/* STEP 4: PAGA */}
         <Stepper.Step label="Paga" icon={<IconCash size={18} />}>
           <motion.div className="space-y-6 mt-5">
             <TextInput
@@ -218,17 +220,17 @@ const [formData, setFormData] = useState<{
               onChange={(e) => setFormData({ ...formData, pay: e.target.value })}
             />
 
-            <Paper p="xl" radius="2rem" className="bg-slate-900 text-black shadow-2xl">
+            <Paper p="xl" radius="2rem" className="bg-slate-900 text-white shadow-2xl">
               <Stack gap={5}>
-                <Text size="xl" fw={900}>{formData.role || "Ruolo"}</Text>
-                <div className="flex gap-2 text-sm">
+                <Text size="xl" fw={900} c="white">{formData.role || "Ruolo"}</Text>
+                <div className="flex gap-2 text-sm text-slate-300">
                   <span>
-                    {formData.startDay?.toLocaleDateString('it-IT') || ""}
+                    {formData.startDay.toLocaleDateString('it-IT')}
                   </span>
                   <IconArrowRight size={12} />
                   <span>{formData.startTime} - {formData.endTime}</span>
                 </div>
-                <Text size="lg" fw={900}>{formData.pay || "0€"} €</Text>
+                <Text size="lg" fw={900} c="blue.4">{formData.pay || "0"} €</Text>
               </Stack>
             </Paper>
           </motion.div>
@@ -236,10 +238,13 @@ const [formData, setFormData] = useState<{
       </Stepper>
 
       <Group justify="space-between" mt="2rem">
-        <Button onClick={() => setActive(active - 1)} disabled={active === 0}
+        <Button 
+          variant="subtle"
+          onClick={() => setActive(active - 1)} 
+          disabled={active === 0}
           radius="xl"
           size="md"
-          className="!bg-transparent hover:!bg-blue-50 !text-blue-600 font-black tracking-tight transition-all active:scale-95 disabled:opacity-30"
+          className="!bg-transparent hover:!bg-slate-100 !text-slate-500 font-black tracking-tight"
         >
           Indietro
         </Button>
@@ -252,8 +257,8 @@ const [formData, setFormData] = useState<{
             color="blue"
             radius="xl"
             size="md"
-            rightSection={<IconArrowRight size={18} />} // Aggiunge dinamismo
-            className="!bg-transparent hover:!bg-blue-50 !text-blue-600 font-black tracking-tight transition-all active:scale-95 disabled:opacity-30"
+            rightSection={<IconArrowRight size={18} />}
+            className="!bg-transparent hover:!bg-blue-50 !text-blue-600 font-black tracking-tight"
           >
             Continua
           </Button>
@@ -261,11 +266,11 @@ const [formData, setFormData] = useState<{
           <Button
             onClick={handleFinalSubmit}
             variant="subtle"
-            color="emerald" // Verde per il pagamento/conferma
+            color="emerald"
             radius="xl"
             size="lg"
             leftSection={<IconCheck size={20} />}
-            className="!bg-transparent hover:!bg-emerald-50 !text-emerald-600 font-black tracking-tighter transition-all active:scale-95 shadow-none"
+            className="!bg-transparent hover:!bg-emerald-50 !text-emerald-600 font-black tracking-tighter"
           >
             Paga e Pubblica
           </Button>
