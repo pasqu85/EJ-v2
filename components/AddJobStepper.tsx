@@ -86,7 +86,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
   return (
     <Box>
       <Stepper active={active} onStepClick={setActive} color="blue" radius="xl" size="sm" allowNextStepsSelect={false}>
-        
+
         {/* STEP 1 */}
         <Stepper.Step label="Azienda" icon={<IconBuildingStore size={18} />}>
           <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4 mt-5">
@@ -142,13 +142,13 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               size="md"
               value={formData.startDay}
               onChange={(value) => {
-                if (value instanceof Date) {
-                  setFormData(prev => ({
-                    ...prev,
-                    startDay: value,
-                    endDay: value
-                  }));
-                }
+                const parsedDate = value ? new Date(value as any) : new Date();
+
+                setFormData(prev => ({
+                  ...prev,
+                  startDay: parsedDate,
+                  endDay: parsedDate,
+                }));
               }}
             />
 
@@ -173,9 +173,12 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               value={formData.endDay}
               minDate={formData.startDay}
               onChange={(value) => {
-                if (value instanceof Date) {
-                  setFormData(prev => ({ ...prev, endDay: value }));
-                }
+                const parsedDate = value ? new Date(value as any) : new Date();
+
+                setFormData(prev => ({
+                  ...prev,
+                  endDay: parsedDate,
+                }));
               }}
             />
 
