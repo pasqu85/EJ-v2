@@ -353,14 +353,20 @@ const mapped: Applicant[] = ((data as any[]) ?? []).map((r) => ({
           </Text>
         </Box>
 
-        <Button
-          leftSection={<IconPlus size={18} />}
-          radius="xl"
-          color="blue"
-          onClick={() => router.push("/employer")}
-        >
-          Pubblica
-        </Button>
+<Button
+  leftSection={<IconPlus size={18} className="!text-white" />} 
+  radius="xl"
+  size="md"
+  onClick={() => router.push("/employer")}
+  // Usiamo classi Tailwind con ! per forzare il colore sopra ogni altra regola
+  className="!bg-blue-400 !text-white shadow-lg shadow-blue-500 hover:!bg-blue-700 transition-all border-none"
+  styles={{
+    root: { color: '#ffffff !important' }, // Forza il bianco nel modulo CSS di Mantine
+    label: { color: '#ffffff !important' }  // Forza il bianco nell'etichetta interna
+  }}
+>
+  <span className="!text-white font-bold">Pubblica</span>
+</Button>
       </Group>
 
       {loadingJobs ? (

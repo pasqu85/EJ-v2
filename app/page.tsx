@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "./lib/supabaseClient";
 import BottomBar from "@/components/BottomBar";
 import { applyToJob, getMyAppliedJobIds, withdrawApplication } from "@/app/lib/applications";
+import Image from "next/image"; 
 // import EmployerPanel from "@/components/EmployerPanel";
 
 // -------------------------
@@ -700,7 +701,7 @@ const renderHome = () => {
   if (!isLoggedIn) {
     if (!entryChoice) {
       return (
-        <div className="relative min-h-[90vh] flex flex-col items-center justify-center p-6 overflow-hidden">
+        <div className="relative min-h-[100vh] flex flex-col items-center justify-center p-6 overflow-hidden">
           {/* Sfondi decorativi per dare profondità */}
           <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-emerald-200/30 rounded-full blur-[100px]" />
           <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-blue-200/30 rounded-full blur-[100px]" />
@@ -721,7 +722,7 @@ const renderHome = () => {
               <p className="text-slate-500 font-bold tracking-tight">Il lavoro extra, semplificato.</p>
             </div>
 
-            <div className="grid gap-5">
+            <div className="grid">
               {/* BOTTONE WORKER */}
               <button
                 onClick={() => setEntryChoice("worker")}
@@ -838,13 +839,27 @@ const renderHome = () => {
   // -------------------------
   return (
     <main className="min-h-screen bg-slate-100">
-      {isLoggedIn && (
-        <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
-          <h1 className="text-3xl font-bold pointer">
-            extra<span className="text-emerald-500">Job</span>
-          </h1>
-        </header>
-      )}
+{isLoggedIn && (
+  <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
+    {/* Contenitore Logo + Testo */}
+    <div 
+      className="flex items-center gap-3 cursor-pointer" 
+      onClick={() => router.push("/")}
+    >
+      <Image 
+        src="/logo.png" 
+        alt="Logo" 
+        width={32} 
+        height={32} 
+        priority // Carica il logo immediatamente
+        className="object-contain"
+      />
+      <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+        extra<span className="text-emerald-500">Job</span>
+      </h1>
+    </div>
+  </header>
+)}
 
       {activeTab === "home" && renderHome()}
       {isLoggedIn && activeTab === "applications" && <ApplicationsPage />}

@@ -10,26 +10,27 @@ import {
   Paper,
   Stack,
   Group,
-  Avatar,
   Button,
   ActionIcon,
   Badge,
-  Divider,
   ThemeIcon,
+  Avatar,
+  Card,
 } from "@mantine/core";
 
 import {
-  IconBuildingStore,
   IconUser,
   IconMail,
   IconPhone,
-  IconMapPin,
   IconLogout,
   IconSettings,
+  IconChevronRight,
+  IconShieldCheck,
+  IconBuildingSkyscraper,
 } from "@tabler/icons-react";
 
 import { supabase } from "@/app/lib/supabaseClient";
-import { STORAGE_KEYS } from "@/app/lib/storageKeys";
+import { motion } from "framer-motion";
 
 type EmployerProfile = {
   id: string;
@@ -44,21 +45,12 @@ export default function EmployerProfilePage() {
   const [user, setUser] = useState<EmployerProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ LOAD PROFILE FROM SUPABASE
   useEffect(() => {
     let alive = true;
-
     async function load() {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return router.replace("/");
 
-      if (!authUser) {
-        router.replace("/");
-        return;
-      }
-
-      // controllo ruolo
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("name, surname, phone, role")
@@ -66,11 +58,7 @@ export default function EmployerProfilePage() {
         .single();
 
       if (!alive) return;
-
-      if (error || profile?.role !== "employer") {
-        router.replace("/");
-        return;
-      }
+      if (error || profile?.role !== "employer") return router.replace("/");
 
       setUser({
         id: authUser.id,
@@ -79,130 +67,134 @@ export default function EmployerProfilePage() {
         phone: profile.phone,
         email: authUser.email ?? "",
       });
-
       setLoading(false);
     }
-
     load();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [router]);
 
-const handleLogout = async () => {
-  await supabase.auth.signOut();
-  router.replace("/");
-};
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.replace("/");
+  };
 
+  if (loading || !user) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
-  if (!user) return null;
-
-  const fullName =
-    `${user.name ?? ""} ${user.surname ?? ""}`.trim() || "Utente";
+  const fullName = `${user.name ?? ""} ${user.surname ?? ""}`.trim() || "Account Impresa";
 
   return (
-    <Box style={{ backgroundColor: "#f8fafc", minHeight: "100vh", paddingBottom: 120 }}>
-      {/* HEADER */}
-      <Box
-        style={{
-          position: "relative",
-          height: "220px",
-          background: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
-          overflow: "hidden",
-        }}
-      >
-        <div className="absolute -top-10 -right-10 w-64 h-64 bg-white/20 rounded-full blur-3xl" />
-        <div className="absolute top-20 -left-10 w-48 h-48 bg-blue-400/30 rounded-full blur-3xl" />
+    <Box className="bg-[#f8fafc] min-h-screen pb-32">
+      {/* HEADER DINAMICO */}
+      <Box className="relative h-64 bg-gradient-to-br from-blue-600 to-cyan-500 overflow-hidden">
+        {/* Cerchi decorativi sfumati */}
+        <div className="absolute -top-10 -right-10 w-64 h-64 bg-white/10 !rounded-full blur-3xl" />
+        <div className="absolute top-20 -left-10 w-48 h-48 bg-cyan-400/20 !rounded-full blur-3xl" />
 
-        <Container size="sm" pt={40}>
-          <Group justify="space-between">
-            <Stack gap={0}>
-              <Title order={1} c="white" fw={900}>
-                Profilo <span style={{ opacity: 0.8 }}>Impresa</span>
+        <Container size="sm" className="relative z-10 pt-12">
+          <Group justify="space-between" align="flex-start">
+            <Stack gap={4}>
+              <Badge variant="white" color="blue" size="sm" radius="sm" fw={900}>PORTALE EMPLOYER</Badge>
+              <Title order={1} className="text-white font-black text-4xl tracking-tighter">
+                Profilo
               </Title>
-              <Text c="blue.1">Gestisci la tua identità su extraJob</Text>
             </Stack>
-
-            <ActionIcon
-              variant="white"
-              color="blue"
-              radius="xl"
-              size="lg"
+            <ActionIcon 
+              variant="blur" 
+              className="bg-white hover:bg-cyan/500 border-white/20 backdrop-blur-md" 
+              radius="xl" size="xl"
               onClick={() => router.push("/employer/profile/edit")}
             >
-              <IconSettings size={20} />
+              <IconSettings size={22} color="black" />
             </ActionIcon>
           </Group>
         </Container>
-
-        <svg className="absolute bottom-0 w-full" viewBox="0 0 1440 100">
-          <path
-            d="M0,100 C480,0 960,0 1440,100 L1440,100 L0,100 Z"
-            fill="#f8fafc"
-          />
-        </svg>
       </Box>
 
-      <Container size="sm" style={{ marginTop: "-40px", position: "relative", zIndex: 5 }}>
+      <Container size="sm" className="-mt-16 relative z-20">
         <Stack gap="xl">
-
-          {/* CARD ACCOUNT */}
-          <Paper p="xl" radius="24px" withBorder shadow="md">
-            <Stack gap="md">
-
-              <Group gap="sm">
-                <ThemeIcon variant="light" radius="md">
-                  <IconUser size={16} />
-                </ThemeIcon>
-                <Box>
-                  <Text size="xs" c="dimmed">Nominativo</Text>
-                  <Text fw={600}>{fullName}</Text>
-                </Box>
+          
+          {/* CARD PRINCIPALE UTENTE */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Paper p="xl" radius="32px" shadow="xl" className="border-none">
+              <Group mb={30}>
+                <Avatar size={70} radius="24px" color="blue" variant="light">
+                  <IconBuildingSkyscraper size={35} />
+                </Avatar>
+                <Stack gap={0}>
+                  <Text className="font-black text-2xl text-slate-800 tracking-tight">{fullName}</Text>
+                  <Text className="text-slate-400 font-bold text-sm">Amministratore Account</Text>
+                </Stack>
               </Group>
 
-              <Group gap="sm">
-                <ThemeIcon variant="light" radius="md">
-                  <IconMail size={16} />
+              <Stack gap="lg">
+                <InfoRow icon={IconMail} label="Email aziendale" value={user.email} />
+                <InfoRow icon={IconPhone} label="Recapito telefonico" value={user.phone || "Non specificato"} />
+                <InfoRow icon={IconShieldCheck} label="Stato Account" value="Verificato" isBadge />
+              </Stack>
+            </Paper>
+          </motion.div>
+
+          {/* AZIONI RAPIDE */}
+          <Stack gap="md">
+
+            
+            <button
+              onClick={() => router.push("/privacy")}
+              className="w-full flex items-center justify-between p-5 bg-white !rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              <Group>
+                <ThemeIcon variant="light" color="slate" radius="md" size="lg">
+                  <IconShieldCheck size={20} />
                 </ThemeIcon>
-                <Box>
-                  <Text size="xs" c="dimmed">Email</Text>
-                  <Text fw={600}>{user.email}</Text>
-                </Box>
+                <Text className="font-bold text-slate-700">Privacy & Termini di Servizio</Text>
               </Group>
+              <IconChevronRight size={18} className="text-slate-300" />
+            </button>
 
-              <Group gap="sm">
-                <ThemeIcon variant="light" radius="md">
-                  <IconPhone size={16} />
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-between p-5 bg-red-50/50 !rounded-[24px] border border-red-100 shadow-sm hover:bg-red-50 transition-all active:scale-[0.98]"
+            >
+              <Group>
+                <ThemeIcon variant="light" color="red" radius="md" size="lg">
+                  <IconLogout size={20} />
                 </ThemeIcon>
-                <Box>
-                  <Text size="xs" c="dimmed">Telefono</Text>
-                  <Text fw={600}>{user.phone || "Non inserito"}</Text>
-                </Box>
+                <Text className="font-bold text-red-600">Disconnetti Account</Text>
               </Group>
+            </button>
+          </Stack>
 
-            </Stack>
-          </Paper>
-
-          {/* LOGOUT */}
-          <Button
-            variant="subtle"
-            color="red"
-            radius="xl"
-            leftSection={<IconLogout size={18} />}
-            onClick={handleLogout}
-          >
-            Disconnetti account
-          </Button>
-          <button
-  onClick={() => router.push("/privacy")}
-  className="mt-3 w-full !rounded-full border border-slate-200
-             font-semibold py-4 bg-white hover:bg-slate-50 transition"
->
-  Privacy & Termini
-</button>
-
+          {/* FOOTER LOGO O INFO */}
+          <Text className="text-center text-slate-300 text-xs font-bold uppercase tracking-widest mt-4">
+            extraJob Business v2
+          </Text>
         </Stack>
       </Container>
     </Box>
+  );
+}
+
+// Componente di supporto per le righe di info
+function InfoRow({ icon: Icon, label, value, isBadge = false }: { icon: any, label: string, value: string, isBadge?: boolean }) {
+  return (
+    <Group justify="space-between" className="py-2 border-b border-slate-50 last:border-none">
+      <Group gap="md">
+        <ThemeIcon variant="light" color="blue" radius="md" size="md">
+          <Icon size={16} />
+        </ThemeIcon>
+        <Stack gap={0}>
+          <Text className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">{label}</Text>
+          {isBadge ? (
+            <Badge color="emerald" variant="light" size="sm" radius="sm" fw={900}>{value}</Badge>
+          ) : (
+            <Text className="font-bold text-slate-700">{value}</Text>
+          )}
+        </Stack>
+      </Group>
+    </Group>
   );
 }

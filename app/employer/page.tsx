@@ -1,20 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DatePickerInput } from "@mantine/dates";
-import { IconClock, IconBuildingStore, IconMapPin } from "@tabler/icons-react";
 import { supabase } from "@/app/lib/supabaseClient";
-import { TextInput } from "@mantine/core";
-import { TimeInput } from "@mantine/dates";
+import AddJobStepper from "@/components/AddJobStepper";
+import { Modal, ActionIcon, Text, Badge } from "@mantine/core";
+import { IconPlus, IconMapPin, IconCalendarEvent, IconChevronRight, IconClock } from "@tabler/icons-react";
+import { motion } from "framer-motion";
 
-type Business = {
+// --- TIPI ---
+interface Business {
   id: string;
   name: string;
-  type: string | null;
   address: string;
-  is_default: boolean;
-};
+  type?: string | null;
+  is_default?: boolean;
+}
 
 type JobRow = {
   id: string;
@@ -39,40 +40,7 @@ type JobUI = {
   startDate: Date;
   endDate: Date;
   businessName?: string;
-  businessType?: string;
-  businessAddress?: string;
 };
-
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function combineDayAndTime(day: Date, hhmm: string) {
-  const [hh, mm] = hhmm.split(":").map(Number);
-  const out = new Date(day);
-  out.setHours(hh || 0, mm || 0, 0, 0);
-  return out;
-}
-
-// function openTimePicker(ref: React.RefObject<HTMLInputElement | null>) {
-//   const el = ref.current;
-//   if (!el) return;
-//   if ("showPicker" in el && typeof (el as any).showPicker === "function") {
-//     (el as any).showPicker();
-//   } else {
-//     el.click();
-//   }
-// }
-
-function formatHHMM(d: Date) {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function getStaticMapUrl(_address: string) {
-  return `https://tile.openstreetmap.org/12/2148/1433.png`;
-}
 
 function toJobUI(r: JobRow): JobUI {
   return {
@@ -83,637 +51,170 @@ function toJobUI(r: JobRow): JobUI {
     startDate: new Date(r.start_date),
     endDate: new Date(r.end_date),
     businessName: r.business_name ?? undefined,
-    businessType: r.business_type ?? undefined,
-    businessAddress: r.business_address ?? undefined,
   };
 }
 
 // --------------------
 // EMPLOYER PANEL
 // --------------------
-function EmployerPanel({
-  businesses,
-  selectedBusinessId,
-  setSelectedBusinessId,
-  useBusiness,
-  setUseBusiness,
-  jobs,
-  // onCreateJob,
-}: {
-  businesses: Business[];
-  selectedBusinessId: string | null;
-  setSelectedBusinessId: (id: string | null) => void;
-  useBusiness: boolean;
-  setUseBusiness: (v: boolean) => void;
-  jobs: JobUI[];
+function EmployerPanel({ businesses, jobs }: { businesses: Business[], jobs: JobUI[] }) {
+  const [opened, setOpened] = useState(false);
 
-}) {
-  const router = useRouter();
+  const handleCreateJob = async (jobData: any) => {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    if (!userId) return alert("Sessione scaduta");
 
-  const [role, setRole] = useState("");
-  const [location, setLocation] = useState("");
-  const [pay, setPay] = useState("");
-  const [businessName, setBusinessName] = useState('');
+    const res = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobData, userId }),
+    });
 
-  const [startDay, setStartDay] = useState<Date | null>(startOfToday());
-  const [endDay, setEndDay] = useState<Date | null>(startOfToday());
+    const json = await res.json();
+    if (json.url) window.location.href = json.url;
+    else alert("Errore pagamento");
+  };
 
-  const [startTime, setStartTime] = useState<string>("");
-  const [endTime, setEndTime] = useState<string>("");
-
-  // const startTimeRef = useRef<HTMLInputElement>(null);
-  // const endTimeRef = useRef<HTMLInputElement>(null);
-
-  const selectedBusiness = useMemo(
-    () => businesses.find((b) => b.id === selectedBusinessId) ?? null,
-    [businesses, selectedBusinessId]
-  );
-
+  
   useEffect(() => {
-    if (selectedBusiness && useBusiness) {
-      setLocation(selectedBusiness.address);
-      setBusinessName(selectedBusiness.name);
-    } else if (!useBusiness) {
-    }
-  }, [selectedBusiness, useBusiness]);
-
-  const handleCreateJob = async (jobData: {
-    role: string;
-    location: string;
-    pay: string;
-    startDate: string;
-    endDate: string;
-    business: Business | null;
-  }) => {
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user.id;
-
-    if (!userId) {
-      alert("Devi essere loggato per pubblicare");
-      return;
-    }
-
-    const res = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobData, userId }),
-    });
-
-    const json = await res.json();
-
-    if (json.url) {
-      window.location.href = json.url;
-    } else {
-      alert("Errore nella creazione della sessione di pagamento");
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!role.trim() || !pay.trim()) {
-      alert("Compila ruolo e paga");
-      return;
-    }
-
-    const finalLocation =
-      selectedBusiness && useBusiness
-        ? selectedBusiness.address
-        : location;
-
-    if (!finalLocation.trim()) {
-      alert("Inserisci il luogo");
-      return;
-    }
-
-    if (!startDay || !endDay || !startTime || !endTime) {
-      alert("Seleziona data e ora");
-      return;
-    }
-
-    const startDate = combineDayAndTime(startDay, startTime);
-    const endDate = combineDayAndTime(endDay, endTime);
-
-    if (endDate <= startDate) {
-      alert("La fine deve essere dopo l’inizio");
-      return;
-    }
-
-    // 🔐 Prendiamo user id
-    const { data } = await supabase.auth.getSession();
-    const userId = data.session?.user.id;
-
-    if (!userId) {
-      alert("Devi essere loggato per pubblicare");
-      return;
-    }
-
-    const jobData = {
-      role: role.trim(),
-      location: finalLocation.trim(),
-      pay: pay.trim(),
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      business: selectedBusiness && useBusiness ? selectedBusiness : null,
-    };
-
-    // 💳 Stripe Checkout
-    const res = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobData, userId }),
-    });
-
-    if (!res.ok) {
-      alert("Errore nella creazione del pagamento");
-      return;
-    }
-
-    const json = await res.json();
-
-    if (json.url) {
-      window.location.href = json.url;
-    } else {
-      alert("Pagamento non avviato");
-    }
-  };
-
-  const mapUrl = selectedBusiness?.address
-    ? getStaticMapUrl(selectedBusiness.address)
-    : getStaticMapUrl("Italia");
+  const handleOpen = () => setOpened(true);
+  window.addEventListener("open-job-stepper", handleOpen);
+  return () => window.removeEventListener("open-job-stepper", handleOpen);
+}, []);
 
   return (
-    <div className="p-4 space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight leading-none">
-        Pubblica un lavoro
-      </h2>
+    <div className="relative min-h-screen bg-slate-50/50 p-6 overflow-hidden">
+      {/* Sfondi decorativi per coerenza con la Home */}
+      <div className="absolute top-[-5%] right-[-5%] w-72 h-72 bg-blue-100/40 rounded-full blur-[100px] -z-10" />
+      <div className="absolute bottom-[10%] left-[-5%] w-64 h-64 bg-emerald-100/40 rounded-full blur-[100px] -z-10" />
 
-      {/* BUSINESSES */}
-      {businesses.length > 0 ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-700">La tua attività</div>
-
-            <button
-              type="button"
-              onClick={() => {
-                const next = !useBusiness;
-                setUseBusiness(next);
-                if (next && selectedBusiness) setLocation(selectedBusiness.address);
-              }}
-              className={`px-3 py-2 !rounded-full text-sm font-semibold border transition ${useBusiness
-                ? "bg-linear-to-r from-blue-500 to-cyan-500 text-white border-blue-400"
-                : "bg-white text-slate-700 border-slate-200"
-                }`}
-            >
-              {useBusiness ? "Usata" : "Usa"}
-            </button>
-          </div>
-
-          <div
-            className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
-            {businesses.map((b) => {
-              const active = b.id === selectedBusinessId;
-
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedBusinessId(b.id);
-                    if (useBusiness) setLocation(b.address);
-                  }}
-                  className={`relative overflow-hidden snap-center shrink-0 w-[88%] sm:w-[420px] text-left !rounded-3xl border transition-all duration-200 ${active ? "border-blue-400" : "border-white/40"
-                    }`}
-                >
-                  <div
-                    className="absolute inset-0 z-0"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%)",
-                      opacity: 0.15,
-                    }}
-                  />
-                  <div className="absolute -top-10 -left-10 w-32 h-32 bg-emerald-400/30 rounded-full blur-3xl z-0" />
-                  <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-400/30 rounded-full blur-3xl z-0" />
-
-                  <div className="relative p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-3">
-                          <span className="h-12 w-12 !rounded-full bg-white/80 text-white flex items-center justify-center shadow-sm border border-white bg-linear-to-r from-blue-500 to-cyan-500">
-                            <IconBuildingStore size={22} />
-                          </span>
-
-                          <div className="min-w-0">
-                            <div className="text-lg font-bold text-slate-900 leading-tight tracking-tight truncate">
-                              {b.name}
-                            </div>
-                            <div className="text-xs font-semibold text-emerald-800/80 uppercase tracking-wider truncate">
-                              {b.type || "Attività"}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex items-center gap-2 bg-white/30 w-fit px-3 py-1 !rounded-full border border-white/20">
-                          <IconMapPin size={14} className="text-slate-800" />
-                          <span className="text-sm font-medium text-slate-800 truncate">
-                            {b.address}
-                          </span>
-                        </div>
-                      </div>
-
-                      {active && (
-                        <span className="text-xs font-bold px-3 py-1 !rounded-full bg-linear-to-r from-blue-500 to-cyan-500 text-white">
-                          Selezionata
-                        </span>
-                      )}
-                    </div>
-
-                    {useBusiness && active && (
-                      <div className="mt-4 pt-3 border-t border-white/20">
-                        <div className="flex items-center gap-2 text-xs font-bold text-emerald-900/80">
-                          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Indirizzo attività impostato nel “Luogo”
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="text-xs text-slate-500">
-            Gestisci attività in{" "}
-            <span
-              className="font-semibold text-emerald-700 cursor-pointer"
-              onClick={() => router.push("/employer/business")}
-            >
-              /employer/business
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white/80 backdrop-blur-xl !rounded-2xl border border-white/50 shadow-sm p-4">
-          <div className="text-sm text-slate-700 font-semibold">Nessuna attività registrata</div>
-          <div className="text-sm text-slate-500 mt-1">
-            Registra la tua attività per riusare l’indirizzo quando pubblichi un lavoro.
-          </div>
-          <button
-            type="button"
-            onClick={() => router.push("/employer/business")}
-            className="mt-3 w-full !rounded-full bg-linear-to-r from-blue-500 to-cyan-500 text-white font-semibold py-3"
-          >
-            Registra attività
-          </button>
-        </div>
-      )}
-
-      {/* DATE + TIME */}
-{/* DATE + TIME SELECTION */}
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-  {/* START BOX */}
-  <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm space-y-3">
-    <div className="flex items-center gap-2 mb-1">
-      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-        <IconClock size={16} stroke={2.5} />
-      </div>
-      <span className="text-xs font-black uppercase tracking-wider text-slate-400">Inizio Turno</span>
-    </div>
-    
-    <DatePickerInput
-      placeholder="Scegli giorno"
-      variant="filled"
-      radius="xl"
-      size="md"
-      dropdownType="modal"
-      value={startDay}
-      onChange={(v) => setStartDay(v as Date | null)}
-      className="font-medium"
-    />
-
-    <TimeInput
-      placeholder="Ora inizio"
-      value={startTime}
-      onChange={(e) => setStartTime(e.currentTarget.value)}
-      radius="xl"
-      size="md"
-      variant="filled"
-      className="font-medium"
-      // Questo permette di aprire il picker cliccando sull'icona su molti browser
-      rightSection={
-        <button 
-          onClick={(e) => {
-            e.preventDefault();
-            const input = e.currentTarget.closest('.mantine-Input-wrapper')?.querySelector('input');
-            if (input && 'showPicker' in input) (input as any).showPicker();
-          }}
-          className="text-slate-400 hover:text-blue-500 transition-colors mr-2"
-        >
-          <IconClock size={18} />
-        </button>
-      }
-    />
-  </div>
-
-  {/* END BOX */}
-  <div className="p-4 bg-white rounded-[24px] border border-slate-100 shadow-sm space-y-3">
-    <div className="flex items-center gap-2 mb-1">
-      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-        <IconClock size={16} stroke={2.5} />
-      </div>
-      <span className="text-xs font-black uppercase tracking-wider text-slate-400">Fine Turno</span>
-    </div>
-
-    <DatePickerInput
-      placeholder="Scegli giorno"
-      variant="filled"
-      radius="xl"
-      size="md"
-      dropdownType="modal"
-      value={endDay}
-      onChange={(v) => setEndDay(v as Date | null)}
-      minDate={startDay ?? undefined}
-      className="font-medium"
-    />
-
-    <TimeInput
-      placeholder="Ora fine"
-      value={endTime}
-      onChange={(e) => setEndTime(e.currentTarget.value)}
-      radius="xl"
-      size="md"
-      variant="filled"
-      className="font-medium"
-      rightSection={
-        <button 
-          onClick={(e) => {
-            e.preventDefault();
-            const input = e.currentTarget.closest('.mantine-Input-wrapper')?.querySelector('input');
-            if (input && 'showPicker' in input) (input as any).showPicker();
-          }}
-          className="text-slate-400 hover:text-blue-500 transition-colors mr-2"
-        >
-          <IconClock size={18} />
-        </button>
-      }
-    />
-  </div>
-</div>
-
-      {/* INPUTS */}
-      {/* <TextInput
-  label="Nome Attività / Azienda"
-  placeholder="Es: Bar Centrale..."
-  value={businessName}
-  onChange={(e) => setBusinessName(e.currentTarget.value)}
-  required
-  mb="md"
-  variant="filled" // Assicurati che lo stile sia uguale agli altri
-/> */}
-      <input
-        placeholder="Nome Attività / Azienda"
-        value={businessName}
-        onChange={(e) => setBusinessName(e.currentTarget.value)}
-        disabled={!!selectedBusiness && useBusiness}
-        className={`w-full p-3 !rounded-xl border mt-2 bg-white ${selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
-          }`}
-      />
-      <input
-        placeholder="Ruolo (es. Cameriere)"
-        value={role}
-        onChange={(e) => setRole(e.target.value)}
-        className="w-full p-3 !rounded-xl border mt-2 bg-white"
-      />
-      <input
-        placeholder="Luogo"
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        disabled={!!selectedBusiness && useBusiness}
-        className={`w-full p-3 !rounded-xl border mt-2 bg-white ${selectedBusiness && useBusiness ? "bg-gray-100 text-gray-600" : ""
-          }`}
-      />
-      <input
-        placeholder="Compenso (es. 80€)"
-        value={pay}
-        onChange={(e) => setPay(e.target.value)}
-        className="w-full p-3 !rounded-xl border mt-2 bg-white"
-      />
-
-      {/* <button
-        onClick={handleSubmit}
-        className="w-full text-white py-3 !rounded-xl font-semibold mt-3 bg-linear-to-r from-blue-500 to-cyan-500"
-      >
-        Pubblica
-      </button> */}
-
-      {/* INPUT COMPENSO */}
-      {/* <input
-        placeholder="Compenso (es. 80€)"
-        value={pay}
-        onChange={(e) => setPay(e.target.value)}
-        className="w-full p-3 !rounded-xl border mt-2 focus:ring-2 focus:ring-blue-500 outline-hidden transition-all"
-      /> */}
-
-      {/* RIEPILOGO COSTI E BOTTONE */}
-      <div className="mt-8 p-6 bg-slate-900 !rounded-[32px] text-white shadow-xl shadow-blue-100">
-        <div className="flex justify-between items-center mb-4">
+      <div className="max-w-2xl mx-auto z-10">
+        <header className="flex justify-between items-end mb-10">
           <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Servizio</div>
-            <div className="text-sm font-medium">Pubblicazione Annuncio</div>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tight">Dashboard</h2>
+            <p className="text-slate-500 font-bold">Gestisci i tuoi annunci attivi</p>
           </div>
-          <div className="text-right">
-            <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Prezzo</div>
-            <div className="text-xl font-black">1.00€</div>
-          </div>
+          <Badge size="lg" radius="md" variant="light" color="blue" className="h-8">
+            {jobs.length} Annunci
+          </Badge>
+        </header>
+
+        <div className="space-y-5">
+          {jobs.length > 0 ? (
+            jobs.map((job, index) => (
+              <motion.div
+                key={job.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="group relative bg-white/80 backdrop-blur-sm p-6 !rounded-[32px] border-2 border-white shadow-xl shadow-slate-200/50 hover:border-blue-500/20 transition-all cursor-pointer"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="space-y-1">
+                    <Text className="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                      {job.role}
+                    </Text>
+                    <div className="flex items-center gap-1.5 text-slate-400 font-bold text-sm">
+                      <IconMapPin size={16} stroke={2.5} className="text-blue-500" />
+                      {job.businessName || job.location}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-blue-500 tracking-tighter">
+                      {job.pay}
+                    </div>
+                    <Badge color="emerald" variant="dot" size="sm" className="font-bold">Attivo</Badge>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl">
+                      <IconCalendarEvent size={16} className="text-slate-500" />
+                      <Text className="text-xs font-black text-slate-600 uppercase">
+                        {job.startDate.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                      </Text>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl">
+                      <IconClock size={16} className="text-slate-500" />
+                      <Text className="text-xs font-black text-slate-600 uppercase">
+                        {job.startDate.getHours()}:00 — {job.endDate.getHours()}:00
+                      </Text>
+                    </div>
+                  </div>
+                  <ActionIcon variant="light" radius="xl" color="blue" className="group-hover:translate-x-1 transition-transform">
+                    <IconChevronRight size={20} />
+                  </ActionIcon>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div className="text-center py-20 bg-white/50 border-2 border-dashed border-slate-200 rounded-[40px]">
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                 <IconPlus size={40} />
+              </div>
+              <Text className="text-slate-500 font-black text-xl">Nessun annuncio</Text>
+              <Text className="text-slate-400 font-bold">Inizia cliccando il tasto +</Text>
+            </div>
+          )}
         </div>
-
-        <button
-          onClick={handleSubmit}
-          className="w-full py-4 bg-linear-to-r from-blue-500 to-cyan-500 hover:bg-emerald-400 text-white !rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
-        >
-          Paga e Pubblica
-          <div className="h-6 w-[1px] bg-white/30" />
-          <span className="text-sm opacity-90 font-bold">Stripe 💳</span>
-        </button>
-
-        <p className="text-[10px] text-center mt-4 text-slate-500 leading-tight">
-          Verrai reindirizzato al pagamento sicuro. <br />
-          L'annuncio sarà visibile immediatamente dopo il checkout.
-        </p>
       </div>
 
-      {/* JOBS */}
-      {jobs.length > 0 && (
-        <div className="mt-6">
-          <h3 className="font-bold mb-2 text-2xl tracking-tight leading-none">
-            I miei lavori
-          </h3>
-          <ul className="space-y-2">
-            {jobs.map((job) => (
-              <li key={job.id} className="bg-white p-3 !rounded-xl shadow">
-                <div className="font-bold">{job.role}</div>
-                <div className="text-sm text-gray-500">
-                  {job.location} • {job.pay}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {job.startDate.toLocaleDateString()} {formatHHMM(job.startDate)} →{" "}
-                  {formatHHMM(job.endDate)}
-                </div>
-
-                {job.businessName && job.businessAddress && (
-                  <div className="text-xs text-emerald-700 mt-2">
-                    {job.businessName} • {job.businessAddress}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <Modal 
+        opened={opened} 
+        onClose={() => setOpened(false)} 
+        title={<Text className="font-black text-2xl tracking-tighter">Nuovo Annuncio</Text>}
+        size="lg"
+        radius="2.5rem"
+        padding="xl"
+        overlayProps={{ backgroundOpacity: 0.6, blur: 8 }}
+      >
+        <AddJobStepper 
+          businesses={businesses} 
+          onComplete={handleCreateJob} 
+        />
+      </Modal>
     </div>
   );
 }
 
 // --------------------
-// PAGE (DB-only)
+// PAGE (Main)
 // --------------------
 export default function EmployerPage() {
   const router = useRouter();
-
-  const [authChecked, setAuthChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [employerId, setEmployerId] = useState<string | null>(null);
-
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
-  const [useBusiness, setUseBusiness] = useState(true);
-
   const [jobs, setJobs] = useState<JobUI[]>([]);
 
   useEffect(() => {
-    let mounted = true;
-
     async function initEmployer() {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.replace("/");
 
-      if (!mounted) return;
-
-      if (!user) {
-        // setAuthChecked(true);
-        router.replace("/");
-        return;
-      }
-
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (!mounted) return;
-
-      if (prof?.role !== "employer") {
-        setAuthChecked(true);
-        router.replace("/");
-        return;
-      }
+      const { data: prof } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      if (prof?.role !== "employer") return router.replace("/");
 
       setEmployerId(user.id);
-      setLoading(false);
 
-      // 1) load businesses
-      const { data: bList, error: bErr } = await supabase
-        .from("businesses")
-        .select("id, name, type, address, is_default")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
+      const { data: bList } = await supabase.from("businesses").select("id, name, type, address, is_default").eq("owner_id", user.id);
+      setBusinesses((bList ?? []) as Business[]);
 
-      if (!mounted) return;
-
-      if (bErr) console.error("businesses:", bErr);
-
-      const list = (bList ?? []) as Business[];
-      setBusinesses(list);
-
-      const def = list.find((b) => b.is_default) ?? list[0] ?? null;
-      if (def) setSelectedBusinessId(def.id);
-
-      // 2) load jobs
-      const { data: jList, error: jErr } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("employer_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (!mounted) return;
-
-      if (jErr) console.error("jobs:", jErr);
+      const { data: jList } = await supabase.from("jobs").select("*").eq("employer_id", user.id).order("created_at", { ascending: false });
       setJobs(((jList ?? []) as JobRow[]).map(toJobUI));
-
-      setAuthChecked(true);
+      setLoading(false);
     }
-
     initEmployer();
-
-    return () => {
-      mounted = false;
-    };
   }, [router]);
 
-  // const onCreateJob = async (input: {
-  //   role: string;
-  //   location: string;
-  //   pay: string;
-  //   startDate: Date;
-  //   endDate: Date;
-  //   business?: Business | null;
-  // }) => {
-  //   if (!employerId) return;
-
-  //   const payload = {
-  //     employer_id: employerId,
-  //     role: input.role,
-  //     location: input.location,
-  //     pay: input.pay,
-  //     start_date: input.startDate.toISOString(),
-  //     end_date: input.endDate.toISOString(),
-  //     business_id: input.business?.id ?? null,
-  //     business_name: input.business?.name ?? null,
-  //     business_type: input.business?.type ?? null,
-  //     business_address: input.business?.address ?? null,
-  //   };
-
-  //   const { data, error } = await supabase
-  //     .from("jobs")
-  //     .insert(payload)
-  //     .select("*")
-  //     .single();
-
-  //   if (error) {
-  //     console.error(error);
-  //     alert(error.message);
-  //     return;
-  //   }
-
-  //   setJobs((prev) => [toJobUI(data as JobRow), ...prev]);
-  // };
-
-  if (!authChecked) {
-    return null;
-  }
-  if (loading) return null;
-  if (!employerId) return null;
-
-  return (
-    <EmployerPanel
-      businesses={businesses}
-      selectedBusinessId={selectedBusinessId}
-      setSelectedBusinessId={setSelectedBusinessId}
-      useBusiness={useBusiness}
-      setUseBusiness={setUseBusiness}
-      jobs={jobs}
-    />
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+      <Text className="font-black text-slate-400 tracking-widest uppercase text-xs">Caricamento</Text>
+    </div>
   );
+
+  return <EmployerPanel businesses={businesses} jobs={jobs} />;
 }

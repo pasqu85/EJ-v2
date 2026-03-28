@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import EmployerBottomBar from "@/components/EmployerBottomBar"
+<meta name="apple-mobile-web-app-title" content="extraJobs" />
 
 
 export default function EmployerLayout({
