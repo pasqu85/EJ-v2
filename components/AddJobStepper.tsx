@@ -64,24 +64,25 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
     [businesses, selectedBusinessId]
   );
 
-  const handleFinalSubmit = () => {
-    const startDate = combineDayAndTime(formData.startDay, formData.startTime);
-    const endDate = combineDayAndTime(formData.endDay, formData.endTime);
+const handleFinalSubmit = () => {
+  const startDate = combineDayAndTime(formData.startDay, formData.startTime);
+  const endDate = combineDayAndTime(formData.endDay, formData.endTime);
 
-    if (endDate <= startDate) {
-      alert("La fine deve essere successiva all'inizio!");
-      return;
-    }
+  if (endDate <= startDate) {
+    alert("La fine deve essere successiva all'inizio!");
+    return;
+  }
 
-    onComplete({
-      role: formData.role.trim(),
-      location: useBusiness && selectedBusiness ? selectedBusiness.address : formData.location,
-      pay: formData.pay.trim(),
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      businessName: useBusiness && selectedBusiness ? selectedBusiness.name : formData.businessName,
-    });
-  };
+  // Passiamo i dati al "padre" (Home o EmployerPanel)
+  onComplete({
+    role: formData.role.trim(),
+    location: useBusiness && selectedBusiness ? selectedBusiness.address : formData.location,
+    pay: formData.pay.trim(),
+    startDate: startDate.toISOString(), 
+    endDate: endDate.toISOString(),     
+    businessName: useBusiness && selectedBusiness ? selectedBusiness.name : formData.businessName,
+  });
+};
 
   return (
     <Box>
@@ -116,7 +117,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
                     radius="xl"
                     withBorder
                     onClick={() => setSelectedBusinessId(b.id)}
-                    className={`cursor-pointer min-w-[180px] transition-all ${selectedBusinessId === b.id ? 'border-blue-500 bg-blue-50/50' : 'border-slate-100'}`}
+                    className={`cursor-pointer min-w-[180px] transition-all ${selectedBusinessId === b.id ? '!border-blue-500 !bg-blue-50/50' : '!border-slate-100'}`}
                   >
                     <Text fw={800} size="sm" className="truncate">{b.name}</Text>
                     <Text size="xs" c="dimmed" className="truncate">{b.address}</Text>
@@ -205,7 +206,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               onChange={(e) => setFormData(prev => ({ ...prev, pay: e.target.value }))}
             />
 
-            <Paper p="xl" radius="2rem" className="bg-slate-900 text-white">
+            <Paper p="xl" radius="2rem" className="bg-gradient-to-br from-slate-900 to-slate-800 text-white">
               <Stack gap={5}>
                 <Text size="xl" fw={900}>{formData.role || "Ruolo"}</Text>
                 <Text size="sm" c="slate.3">
@@ -237,9 +238,9 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
           <Button
             onClick={handleFinalSubmit}
             variant="subtle"
-            color="emerald"
             radius="xl"
             leftSection={<IconCheck size={20} />}
+            className="!bg-emerald-100 hover:!bg-emerald-400 hover:!shadow-lg !shadow-emerald-200"
           >
             Pubblica
           </Button>

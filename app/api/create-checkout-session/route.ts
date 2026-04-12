@@ -19,25 +19,25 @@ export async function POST(req: Request) {
 
     // ✅ 1. Mappatura corretta per Supabase
     // Questo risolve l'errore "Could not find the 'business' column"
-    const { data: job, error } = await supabase
-      .from("jobs")
-      .insert({
-        role: jobData.role,
-        location: jobData.location,
-        pay: jobData.pay,
-        start_date: jobData.startDate, // Assicurati che sia in formato ISO string
-        end_date: jobData.endDate,     // Assicurati che sia in formato ISO string
-        business_name: jobData.businessName, // Mappa businessName su business_name
-        employer_id: userId,
-        // status: "pending",
-      })
-      .select()
-      .single();
+    // const { data: job, error } = await supabase
+    //   .from("jobs")
+    //   .insert({
+    //     role: jobData.role,
+    //     location: jobData.location,
+    //     pay: jobData.pay,
+    //     start_date: jobData.startDate, // Assicurati che sia in formato ISO string
+    //     end_date: jobData.endDate,     // Assicurati che sia in formato ISO string
+    //     business_name: jobData.businessName, // Mappa businessName su business_name
+    //     employer_id: userId,
+    //     // status: "pending",
+    //   })
+    //   .select()
+    //   .single();
 
-    if (error) {
-      console.error("SUPABASE INSERT ERROR:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    // if (error) {
+    //   console.error("SUPABASE INSERT ERROR:", error);
+    //   return NextResponse.json({ error: error.message }, { status: 500 });
+    // }
 
 const baseUrl = "https://www.extrajobs.app";
 
@@ -61,11 +61,15 @@ const baseUrl = "https://www.extrajobs.app";
       cancel_url: `${baseUrl}/employer`,
 
       // ✅ Usa jobData (che hai estratto sopra) invece di body
-      metadata: {
-        jobId: job.id, // Molto importante passare l'ID del job appena creato
-        role: jobData.role,
-        business_name: jobData.businessName,
-      },
+metadata: {
+  role: jobData.role,
+  location: jobData.location,
+  pay: jobData.pay,
+  startDate: jobData.startDate,
+  endDate: jobData.endDate,
+  businessName: jobData.businessName,
+  userId: userId,
+}
     });
 
     return NextResponse.json({ url: session.url });

@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import AddJobStepper from "@/components/AddJobStepper";
-import { Modal, ActionIcon, Text, Badge } from "@mantine/core";
+import { Modal, ActionIcon, Text, Badge, Center, Loader } from "@mantine/core";
 import { IconPlus, IconMapPin, IconCalendarEvent, IconChevronRight, IconClock } from "@tabler/icons-react";
 import { motion } from "framer-motion";
+
+
 
 // --- TIPI ---
 interface Business {

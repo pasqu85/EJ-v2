@@ -19,7 +19,8 @@ import { supabase } from "./lib/supabaseClient";
 import BottomBar from "@/components/BottomBar";
 import { applyToJob, getMyAppliedJobIds, withdrawApplication } from "@/app/lib/applications";
 import Image from "next/image"; 
-// import EmployerPanel from "@/components/EmployerPanel";
+
+
 
 // -------------------------
 // TYPES
@@ -138,101 +139,6 @@ function TimeStepper({
 
 
 
-// -------------------------
-// EMPLOYER PANEL
-// -------------------------
-// function EmployerPanel({
-//   jobs,
-//   onAddJob,
-// }: {
-//   jobs: Job[];
-//   onAddJob: (job: Omit<Job, "id">) => void;
-// }) {
-//   const [role, setRole] = useState("");
-//   const [location, setLocation] = useState("");
-//   const [pay, setPay] = useState("");
-//   const [businessName, setBusinessName] = useState('');
-
-//   const [startDate, setStartDate] = useState<Date | null>(new Date());
-//   const [startTime, setStartTime] = useState<string>("09:00");
-
-//   const [endDate, setEndDate] = useState<Date | null>(new Date());
-//   const [endTime, setEndTime] = useState<string>("11:00");
-
-//   const handleFinalSubmit = (event: React.FormEvent) => {
-//     event.preventDefault();
-//     if (!role || !location || !pay || !businessName || !startDate || !endDate) {
-//       alert("Compila tutti i campi.");
-//       return;
-//     }
-
-//     const sYMD = startDate.toISOString().split('T')[0];
-//     const eYMD = endDate.toISOString().split('T')[0];
-//     const s = combineYMDTime(sYMD, startTime);
-//     const e = combineYMDTime(eYMD, endTime);
-
-//     if (e <= s) {
-//       alert("La fine deve essere dopo l’inizio.");
-//       return;
-//     }
-
-//     onAddJob({ role, location, startDate: s, endDate: e, pay, businessName });
-//   };
-
-//   return (
-//     <div className="p-5 space-y-8 text-left pb-32">
-//       <h2 className="text-2xl font-black text-slate-800">Crea Annuncio</h2>
-
-//       <form onSubmit={handleFinalSubmit} className="space-y-6">
-        
-//         {/* SEZIONE INIZIO */}
-//         <div className="space-y-4">
-//           <DatePickerInput
-//             label="Giorno di inizio"
-//             placeholder="Quando inizia?"
-//             value={startDate}
-//             onChange={setStartDate}
-//             radius="xl"
-//             size="md"
-//             dropdownType="modal" // Il calendario in modal è l'unica cosa che Safari digerisce bene
-//           />
-//           <TimeStepper label="Ora di Inizio" value={startTime} onChange={setStartTime} />
-//         </div>
-
-//         <hr className="border-slate-100" />
-
-//         {/* SEZIONE FINE */}
-//         <div className="space-y-4">
-//           <DatePickerInput
-//             label="Giorno di fine"
-//             placeholder="Quando finisce?"
-//             value={endDate}
-//             onChange={setEndDate}
-//             radius="xl"
-//             size="md"
-//             dropdownType="modal"
-//           />
-//           <TimeStepper label="Ora di Fine" value={endTime} onChange={setEndTime} />
-//         </div>
-
-//         {/* DETTAGLI */}
-//         <div className="space-y-4 pt-4">
-//           <TextInput label="Attività" placeholder="Nome locale" radius="xl" size="md" value={businessName} onChange={(e) => setBusinessName(e.currentTarget.value)} />
-//           <TextInput label="Ruolo" placeholder="Cosa cerchi?" radius="xl" size="md" value={role} onChange={(e) => setRole(e.currentTarget.value)} />
-//           <TextInput label="Città / Via" placeholder="Dove?" radius="xl" size="md" value={location} onChange={(e) => setLocation(e.currentTarget.value)} />
-//           <TextInput label="Paga Totale" placeholder="Es: 100€" radius="xl" size="md" value={pay} onChange={(e) => setPay(e.currentTarget.value)} />
-//         </div>
-
-//         <button 
-//           type="submit"
-//           className="w-full bg-blue-600 text-white py-4 rounded-[2rem] font-black shadow-xl shadow-blue-100 active:scale-95 transition-all"
-//         >
-//           PROCEDI AL PAGAMENTO
-//         </button>
-//       </form>
-//     </div>
-//   );
-// }
 
 // -------------------------
 // HOME
@@ -726,9 +632,9 @@ const renderHome = () => {
               {/* BOTTONE WORKER */}
               <button
                 onClick={() => setEntryChoice("worker")}
-                className="group relative overflow-hidden w-full flex items-center gap-5 p-10 backdrop-blur-md !rounded-[32px] border-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-emerald-600 hover:border-emerald-500/30 transition-all duration-300 active:scale-95"
+                className="group mb-4 relative overflow-hidden w-full flex items-center gap-5 p-10 backdrop-blur-md !rounded-[32px] border-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-emerald-600 hover:border-emerald-500/30 transition-all duration-300 active:scale-95"
               >
-                <div className="w-14 h-14 !rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:rotate-6 transition-transform">
+                <div className="w-14 h-14 mb-4 !rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200 group-hover:rotate-6 transition-transform">
                   <IconBriefcase size={30} stroke={2.5} />
                 </div>
                 <div className="text-left">
@@ -847,7 +753,7 @@ const renderHome = () => {
       onClick={() => router.push("/")}
     >
       <Image 
-        src="/logo.png" 
+        src="/logo2.png"
         alt="Logo" 
         width={32} 
         height={32} 
@@ -966,6 +872,19 @@ const renderHome = () => {
     onBackHome={() => setActiveTab("home")}
   />
 )} */}
+
+{/* BUG REPORT LINK */}
+<div className="flex justify-center pb-8 pt-4">
+  <a 
+    href="mailto:extrajobapp@outlook.com?subject=Segnalazione Bug extraJob"
+    className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors group"
+  >
+    <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-700">
+      Segnala un bug o un suggerimento
+    </span>
+  </a>
+</div>
     </main>
   );
 }
