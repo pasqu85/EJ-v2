@@ -9,34 +9,31 @@ import { supabase } from "@/app/lib/supabaseClient";
 export default function ProfilePage() {
   const router = useRouter();
 
-  // ✅ STATE REALI DAL DB
+  // STATE
   const [avatar, setAvatar] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(true);
 
   // -----------------------
-  // LOAD PROFILE FROM SUPABASE
+  // LOAD PROFILE (FIX COMPLETO)
   // -----------------------
   useEffect(() => {
     let alive = true;
 
-    (async () => {
+    const loadProfile = async () => {
+      setLoading(true);
+
       const {
         data: { user },
-        error: uErr,
       } = await supabase.auth.getUser();
 
       if (!alive) return;
 
-      if (uErr) {
-        console.error("Errore getUser:", uErr);
-        return;
-      }
-
       if (!user) {
-        router.replace("/");
+        setLoading(false);
         return;
       }
 
@@ -52,22 +49,44 @@ export default function ProfilePage() {
 
       if (error) {
         console.error("Errore caricamento profilo:", error);
-        return;
+      } else {
+        setFirstName(data?.name ?? "");
+        setLastName(data?.surname ?? "");
+        setPhone(data?.phone ?? "");
+        setAvatar(data?.avatar_url ?? null);
       }
 
-      setFirstName(data?.name ?? "");
-      setLastName(data?.surname ?? "");
-      setPhone(data?.phone ?? "");
-      setAvatar(data?.avatar_url ?? null);
-    })();
+      setLoading(false);
+    };
+
+    // 🔥 load iniziale
+    loadProfile();
+
+    // 🔥 listener auth (fondamentale)
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          loadProfile();
+        }
+      }
+    );
+
+    // 🔥 quando torni sulla tab
+    const onFocus = () => {
+      loadProfile();
+    };
+
+    window.addEventListener("focus", onFocus);
 
     return () => {
       alive = false;
+      listener.subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
     };
-  }, [router]);
+  }, []);
 
   // -----------------------
-  // LOGOUT (NO localStorage)
+  // LOGOUT
   // -----------------------
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -79,6 +98,17 @@ export default function ProfilePage() {
     () => `${firstName} ${lastName}`.trim() || "Utente",
     [firstName, lastName]
   );
+
+  // -----------------------
+  // LOADING UI
+  // -----------------------
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh] text-slate-400 font-semibold">
+        Caricamento profilo...
+      </div>
+    );
+  }
 
   // -----------------------
   // UI
@@ -147,13 +177,13 @@ export default function ProfilePage() {
         >
           LOGOUT
         </button>
+
         <button
-  onClick={() => router.push("/privacy")}
-  className="mt-3 w-full !rounded-full border border-slate-200
-             font-semibold py-4 bg-white hover:bg-slate-50 transition"
->
-  Privacy & Termini
-</button>
+          onClick={() => router.push("/privacy")}
+          className="mt-3 w-full !rounded-full border border-slate-200 font-semibold py-4 bg-white hover:bg-slate-50 transition"
+        >
+          Privacy & Termini
+        </button>
       </div>
     </div>
   );
