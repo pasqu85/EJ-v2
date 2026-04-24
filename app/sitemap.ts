@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { supabase } from '@/app/lib/supabaseClient' // Importa il tuo client Supabase
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = 'https://www.extrajob.it' // Sostituisci con il tuo dominio reale
+  const baseUrl = 'https://www.extrajobs.app' // Sostituisci con il tuo dominio reale
 
   // 1. Pagine statiche
   const staticPages = [
