@@ -1,328 +1,328 @@
-  "use client";
+"use client";
 
-  import { useEffect, useRef, useState } from "react";
-  import { useSearchParams } from "next/navigation";
-  import { motion } from "framer-motion";
-  import { IconBriefcase, IconBuildingStore, IconChevronRight, IconClock } from "@tabler/icons-react";
-  import WorkerPanel from "@/components/WorkerPanel";
-  import Login from "../components/Login";
-  import JobCard from "../components/JobCard";
-  import ProfilePage from "../components/ProfilePage";
-  import ApplicationsPage from "../components/ApplicationsPage";
-  import JobDetailsSheet from "@/components/JobDetailsSheet";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
+import { IconBriefcase, IconBuildingStore, IconChevronRight, IconClock } from "@tabler/icons-react";
+import WorkerPanel from "@/components/WorkerPanel";
+import Login from "../components/Login";
+import JobCard from "../components/JobCard";
+import ProfilePage from "../components/ProfilePage";
+import ApplicationsPage from "../components/ApplicationsPage";
+import JobDetailsSheet from "@/components/JobDetailsSheet";
 
-  import { STORAGE_KEYS } from "@/app/lib/storageKeys";
-  import { MiniCalendar, DatePickerInput } from "@mantine/dates";
-  import { ActionIcon, NativeSelect, TextInput } from "@mantine/core";
-  import { useRouter } from "next/navigation";
-  import { supabase } from "./lib/supabaseClient";
-  import BottomBar from "@/components/BottomBar";
-  import { applyToJob, getMyAppliedJobIds, withdrawApplication } from "@/app/lib/applications";
-  import Image from "next/image"; 
+import { STORAGE_KEYS } from "@/app/lib/storageKeys";
+import { MiniCalendar, DatePickerInput } from "@mantine/dates";
+import { ActionIcon, NativeSelect, TextInput } from "@mantine/core";
+import { useRouter } from "next/navigation";
+import { supabase } from "./lib/supabaseClient";
+import BottomBar from "@/components/BottomBar";
+import { applyToJob, getMyAppliedJobIds, withdrawApplication } from "@/app/lib/applications";
+import Image from "next/image";
 
 
 
-  // -------------------------
-  // TYPES
-  // -------------------------
-  type UserRole = "worker" | "employer" | null;
-  type Tab = "home" | "applications" | "profile";
+// -------------------------
+// TYPES
+// -------------------------
+type UserRole = "worker" | "employer" | null;
+type Tab = "home" | "applications" | "profile";
 
-  export type Job = {
-    id: string;
-    role: string;
-    location: string;
-    startDate: Date;
-    endDate: Date;
-    pay: string;
-    businessName?: string;  
-    business_name?: string;
+export type Job = {
+  id: string;
+  role: string;
+  location: string;
+  startDate: Date;
+  endDate: Date;
+  pay: string;
+  businessName?: string;
+  business_name?: string;
+};
+
+// -------------------------
+// CONSTANTS
+// -------------------------
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINUTES = ["00", "10", "20", "30", "40", "50"];
+
+// -------------------------
+// HELPERS
+// -------------------------
+function generateId() {
+  try {
+    // @ts-ignore
+    if (typeof crypto !== "undefined" && crypto?.randomUUID) return crypto.randomUUID();
+  } catch { }
+  return "id-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
+}
+
+function todayYMD() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`; // YYYY-MM-DD
+}
+
+function combineYMDTime(dayYMD: string, hhmm: string) {
+  const [y, m, d] = dayYMD.split("-").map(Number);
+  const [hh, mm] = hhmm.split(":").map(Number);
+
+  const out = new Date();
+  out.setFullYear(y, (m || 1) - 1, d || 1);
+  out.setHours(hh || 0, mm || 0, 0, 0);
+  return out;
+}
+
+function reviveJobs(raw: string | null): Job[] {
+  const parsed = raw ? (JSON.parse(raw) as any[]) : [];
+  return parsed.map((j) => ({
+    ...j,
+    startDate: new Date(j.startDate),
+    endDate: new Date(j.endDate),
+  }));
+}
+
+
+// ✅ fuori dal component: no hook-order issues
+const computeNumberOfDays = (width: number) => {
+  const MIN = 6;
+  const MAX = 20;
+  const DAY_MIN_PX = 96;
+  const usable = Math.max(320, width) - 320;
+  const calculated = Math.floor(usable / DAY_MIN_PX);
+  return Math.max(MIN, Math.min(MAX, calculated || 7));
+};
+// 1. COMPONENTE DI SUPPORTO (Mettilo qui, fuori dagli altri)
+function TimeStepper({
+  label,
+  value,
+  onChange
+}: {
+  label: string;
+  value: string;
+  onChange: (newTime: string) => void
+}) {
+  const [hh, mm] = value.split(":").map(Number);
+
+  const adjust = (type: 'h' | 'm', delta: number) => {
+    if (type === 'h') {
+      let newH = (hh + delta + 24) % 24;
+      onChange(`${String(newH).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+    } else {
+      let newM = (mm + delta + 60) % 60;
+      onChange(`${String(hh).padStart(2, "0")}:${String(newM).padStart(2, "0")}`);
+    }
   };
 
-  // -------------------------
-  // CONSTANTS
-  // -------------------------
-  const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-  const MINUTES = ["00", "10", "20", "30", "40", "50"];
-
-  // -------------------------
-  // HELPERS
-  // -------------------------
-  function generateId() {
-    try {
-      // @ts-ignore
-      if (typeof crypto !== "undefined" && crypto?.randomUUID) return crypto.randomUUID();
-    } catch { }
-    return "id-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
-  }
-
-  function todayYMD() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`; // YYYY-MM-DD
-  }
-
-  function combineYMDTime(dayYMD: string, hhmm: string) {
-    const [y, m, d] = dayYMD.split("-").map(Number);
-    const [hh, mm] = hhmm.split(":").map(Number);
-
-    const out = new Date();
-    out.setFullYear(y, (m || 1) - 1, d || 1);
-    out.setHours(hh || 0, mm || 0, 0, 0);
-    return out;
-  }
-
-  function reviveJobs(raw: string | null): Job[] {
-    const parsed = raw ? (JSON.parse(raw) as any[]) : [];
-    return parsed.map((j) => ({
-      ...j,
-      startDate: new Date(j.startDate),
-      endDate: new Date(j.endDate),
-    }));
-  }
-
-
-  // ✅ fuori dal component: no hook-order issues
-  const computeNumberOfDays = (width: number) => {
-    const MIN = 6;
-    const MAX = 20;
-    const DAY_MIN_PX = 96;
-    const usable = Math.max(320, width) - 320;
-    const calculated = Math.floor(usable / DAY_MIN_PX);
-    return Math.max(MIN, Math.min(MAX, calculated || 7));
-  };
-  // 1. COMPONENTE DI SUPPORTO (Mettilo qui, fuori dagli altri)
-  function TimeStepper({ 
-    label, 
-    value, 
-    onChange 
-  }: { 
-    label: string; 
-    value: string; 
-    onChange: (newTime: string) => void 
-  }) {
-    const [hh, mm] = value.split(":").map(Number);
-
-    const adjust = (type: 'h' | 'm', delta: number) => {
-      if (type === 'h') {
-        let newH = (hh + delta + 24) % 24;
-        onChange(`${String(newH).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
-      } else {
-        let newM = (mm + delta + 60) % 60;
-        onChange(`${String(hh).padStart(2, "0")}:${String(newM).padStart(2, "0")}`);
-      }
-    };
-
-    return (
-      <div className="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
-        <span className="text-xs font-bold text-slate-400 ml-2 uppercase tracking-tight">{label}</span>
-        <div className="flex items-center justify-around gap-2">
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => adjust('h', -1)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">-</button>
-            <span className="text-lg font-black w-8 text-center">{String(hh).padStart(2, "0")}</span>
-            <button type="button" onClick={() => adjust('h', 1)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">+</button>
-          </div>
-          <span className="font-bold text-slate-300 text-xl">:</span>
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => adjust('m', -10)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">-</button>
-            <span className="text-lg font-black w-8 text-center">{String(mm).padStart(2, "0")}</span>
-            <button type="button" onClick={() => adjust('m', 10)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">+</button>
-          </div>
+  return (
+    <div className="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+      <span className="text-xs font-bold text-slate-400 ml-2 uppercase tracking-tight">{label}</span>
+      <div className="flex items-center justify-around gap-2">
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => adjust('h', -1)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">-</button>
+          <span className="text-lg font-black w-8 text-center">{String(hh).padStart(2, "0")}</span>
+          <button type="button" onClick={() => adjust('h', 1)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">+</button>
+        </div>
+        <span className="font-bold text-slate-300 text-xl">:</span>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={() => adjust('m', -10)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">-</button>
+          <span className="text-lg font-black w-8 text-center">{String(mm).padStart(2, "0")}</span>
+          <button type="button" onClick={() => adjust('m', 10)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold active:bg-slate-200">+</button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // 2. IL TUO PANNELLO EMPLOYER
+// 2. IL TUO PANNELLO EMPLOYER
 
 
 
 
-  // -------------------------
-  // HOME
-  // -------------------------
-  export default function Home() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
+// -------------------------
+// HOME
+// -------------------------
+export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-    // AUTH + ROLE
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userRole, setUserRole] = useState<UserRole>(null);
-    const [authUserId, setAuthUserId] = useState<string | null>(null);
+  // AUTH + ROLE
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
-    // DATA
-    const [jobs, setJobs] = useState<Job[]>([]);
-    const [appliedJobs, setAppliedJobs] = useState<string[]>([]);
-    const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  // DATA
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [appliedJobs, setAppliedJobs] = useState<string[]>([]);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
-    const [activeTab, setActiveTab] = useState<Tab>("home");
-    const [sessionChecked, setSessionChecked] = useState(false);
-    const [hasSession, setHasSession] = useState(false);
-    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-    // Spotlight search
-    const [searchQuery, setSearchQuery] = useState("");
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  // Spotlight search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
-    // Calendar (lasciato come nel tuo codice)
-    const [selDay, setSelDay] = useState<Date | null>(new Date());
-    const [numberOfDays, setNumberOfDays] = useState<number>(() => {
-      if (typeof window === "undefined") return 7;
-      return computeNumberOfDays(window.innerWidth);
-    });
+  // Calendar (lasciato come nel tuo codice)
+  const [selDay, setSelDay] = useState<Date | null>(new Date());
+  const [numberOfDays, setNumberOfDays] = useState<number>(() => {
+    if (typeof window === "undefined") return 7;
+    return computeNumberOfDays(window.innerWidth);
+  });
 
-    type EntryChoice = "worker" | "employer" | null;
+  type EntryChoice = "worker" | "employer" | null;
 
-    const [entryChoice, setEntryChoice] = useState<EntryChoice>(null);
+  const [entryChoice, setEntryChoice] = useState<EntryChoice>(null);
 
-    const syncAppliedJobs = async () => {
+  const syncAppliedJobs = async () => {
+    try {
+      const ids = await getMyAppliedJobIds();
+      setAppliedJobs(ids);
+    } catch (e) {
+      console.error("syncAppliedJobs error:", e);
+      setAppliedJobs([]);
+    }
+  };
+  useEffect(() => {
+    let mounted = true;
+
+    const handleAuth = async (session: any) => {
+      if (!mounted) return;
+      const user = session?.user ?? null;
+
+      if (user) {
+        setIsLoggedIn(true);
+        setAuthUserId(user.id);
+
+        // Carichiamo tutto in parallelo per velocità
+        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+        setUserRole((profile?.role as UserRole) ?? null);
+
+        await Promise.all([
+          loadJobsFromDb(),
+          syncAppliedJobs()
+        ]);
+      } else {
+        // RESET TOTALE AL LOGOUT
+        setIsLoggedIn(false);
+        setUserRole(null);
+        setAuthUserId(null);
+        setAppliedJobs([]);
+        setActiveTab("home");
+      }
+      setIsCheckingAuth(false); // Sblocca la UI
+    };
+
+    // Controllo iniziale
+    supabase.auth.getSession().then(({ data: { session } }) => handleAuth(session));
+
+    // Ascolta cambi in tempo reale
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => handleAuth(session));
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onJobs = () => loadJobsFromDb();
+    const onApps = async () => {
       try {
         const ids = await getMyAppliedJobIds();
         setAppliedJobs(ids);
-      } catch (e) {
-        console.error("syncAppliedJobs error:", e);
+      } catch {
         setAppliedJobs([]);
       }
     };
-useEffect(() => {
-  let mounted = true;
 
-  const handleAuth = async (session: any) => {
-    if (!mounted) return;
-    const user = session?.user ?? null;
+    window.addEventListener("jobs-updated", onJobs);
+    window.addEventListener("applications-updated", onApps);
 
-    if (user) {
-      setIsLoggedIn(true);
-      setAuthUserId(user.id);
-      
-      // Carichiamo tutto in parallelo per velocità
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-      setUserRole((profile?.role as UserRole) ?? null);
-      
-      await Promise.all([
-        loadJobsFromDb(),
-        syncAppliedJobs()
-      ]);
-    } else {
-      // RESET TOTALE AL LOGOUT
-      setIsLoggedIn(false);
-      setUserRole(null);
-      setAuthUserId(null);
-      setAppliedJobs([]);
-      setActiveTab("home");
-    }
-    setIsCheckingAuth(false); // Sblocca la UI
-  };
+    return () => {
+      window.removeEventListener("jobs-updated", onJobs);
+      window.removeEventListener("applications-updated", onApps);
+    };
+  }, []);
 
-  // Controllo iniziale
-  supabase.auth.getSession().then(({ data: { session } }) => handleAuth(session));
+  useEffect(() => {
+    const handler = () => syncAppliedJobs();
+    window.addEventListener("applications-updated", handler);
+    return () => window.removeEventListener("applications-updated", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Ascolta cambi in tempo reale
-  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => handleAuth(session));
+  useEffect(() => {
+    let mounted = true;
 
-  return () => {
-    mounted = false;
-    sub.subscription.unsubscribe();
-  };
-}, []);
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted) return;
 
-    useEffect(() => {
-      const onJobs = () => loadJobsFromDb();
-      const onApps = async () => {
-        try {
-          const ids = await getMyAppliedJobIds();
-          setAppliedJobs(ids);
-        } catch {
-          setAppliedJobs([]);
-        }
-      };
-
-      window.addEventListener("jobs-updated", onJobs);
-      window.addEventListener("applications-updated", onApps);
-
-      return () => {
-        window.removeEventListener("jobs-updated", onJobs);
-        window.removeEventListener("applications-updated", onApps);
-      };
-    }, []);
-
-    useEffect(() => {
-      const handler = () => syncAppliedJobs();
-      window.addEventListener("applications-updated", handler);
-      return () => window.removeEventListener("applications-updated", handler);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    useEffect(() => {
-      let mounted = true;
-
-      (async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!mounted) return;
-
-        if (user) {
-          // se sei worker, sincronizza candidature
-          await syncAppliedJobs();
-        } else {
-          setAppliedJobs([]);
-        }
-      })();
-
-      return () => { mounted = false; };
-    }, []);
-
-    //bottom bar
-    useEffect(() => {
-      let mounted = true;
-
-      async function sync() {
-        const { data } = await supabase.auth.getSession();
-        if (!mounted) return;
-
-        const session = data.session;
-        setHasSession(!!session);
-        setSessionChecked(true);
-
-        if (!session) {
-          // ✅ sei loggato? no -> reset UI
-          setIsLoggedIn(false);
-          setUserRole(null);
-          setActiveTab("home");
-          setAppliedJobs([]);
-          setSelectedJob(null);
-        }
+      if (user) {
+        // se sei worker, sincronizza candidature
+        await syncAppliedJobs();
+      } else {
+        setAppliedJobs([]);
       }
+    })();
 
-      sync();
+    return () => { mounted = false; };
+  }, []);
 
-      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (!mounted) return;
+  //bottom bar
+  useEffect(() => {
+    let mounted = true;
 
-        setHasSession(!!session);
-        setSessionChecked(true);
+    async function sync() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
 
-        if (!session) {
-          // ✅ logout -> reset UI e niente bottom bar
-          setIsLoggedIn(false);
-          setUserRole(null);
-          setActiveTab("home");
-          setAppliedJobs([]);
-          setSelectedJob(null);
-        }
-      });
+      const session = data.session;
+      setHasSession(!!session);
+      setSessionChecked(true);
 
-      return () => {
-        mounted = false;
-        sub.subscription.unsubscribe();
-      };
-    }, []);
+      if (!session) {
+        // ✅ sei loggato? no -> reset UI
+        setIsLoggedIn(false);
+        setUserRole(null);
+        setActiveTab("home");
+        setAppliedJobs([]);
+        setSelectedJob(null);
+      }
+    }
 
-    // -------------------------
-    // LOADERS (DB)
-    // -------------------------
+    sync();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+
+      setHasSession(!!session);
+      setSessionChecked(true);
+
+      if (!session) {
+        // ✅ logout -> reset UI e niente bottom bar
+        setIsLoggedIn(false);
+        setUserRole(null);
+        setActiveTab("home");
+        setAppliedJobs([]);
+        setSelectedJob(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  // -------------------------
+  // LOADERS (DB)
+  // -------------------------
   async function loadJobsFromDb() {
     const { data, error } = await supabase
       .from("jobs")
@@ -344,241 +344,255 @@ useEffect(() => {
     setJobs(mapped);
   }
 
-    async function loadAppliedFromDb(userId: string) {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("job_id")
-        .eq("worker_id", userId);
+  async function loadAppliedFromDb(userId: string) {
+    const { data, error } = await supabase
+      .from("applications")
+      .select("job_id")
+      .eq("worker_id", userId);
 
-      if (error) {
-        console.error("loadAppliedFromDb error:", error);
-        return;
-      }
-
-      setAppliedJobs((data ?? []).map((r: any) => r.job_id));
+    if (error) {
+      console.error("loadAppliedFromDb error:", error);
+      return;
     }
 
-    async function loadRoleFromDb(userId: string) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .single();
+    setAppliedJobs((data ?? []).map((r: any) => r.job_id));
+  }
 
-      if (error) {
-        console.error("loadRoleFromDb error:", error);
+  async function loadRoleFromDb(userId: string) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error("loadRoleFromDb error:", error);
+      setUserRole(null);
+      return;
+    }
+
+    setUserRole((data?.role as UserRole) ?? null);
+  }
+
+  // -------------------------
+  // INIT AUTH (NO LOCALSTORAGE)
+  // -------------------------
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      setHasSession(!!data.session);
+      setSessionChecked(true);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function init() {
+      const { data } = await supabase.auth.getSession();
+      const sessionUser = data.session?.user ?? null;
+
+      if (!mounted) return;
+
+      if (!sessionUser) {
+        setIsLoggedIn(false);
+        setAuthUserId(null);
         setUserRole(null);
+        setAppliedJobs([]);
+        setJobs([]);
         return;
       }
 
-      setUserRole((data?.role as UserRole) ?? null);
+      setIsLoggedIn(true);
+      setAuthUserId(sessionUser.id);
+
+      await loadRoleFromDb(sessionUser.id);
+      await loadJobsFromDb();
+      await loadAppliedFromDb(sessionUser.id);
     }
 
-    // -------------------------
-    // INIT AUTH (NO LOCALSTORAGE)
-    // -------------------------
-    useEffect(() => {
-      let mounted = true;
+    init();
 
-      (async () => {
-        const { data } = await supabase.auth.getSession();
+    // ascolta login/logout
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null;
 
-        if (!mounted) return;
+      // ✅ Se torno da Google, applico il ruolo scelto prima del redirect
+      if (session?.user) {
+        const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
+          | "worker"
+          | "employer"
+          | null;
 
-        setHasSession(!!data.session);
-        setSessionChecked(true);
-      })();
+        if (pendingRole) {
+          await supabase
+            .from("profiles")
+            .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
 
-      return () => {
-        mounted = false;
-      };
-    }, []);
-
-    useEffect(() => {
-      let mounted = true;
-
-      async function init() {
-        const { data } = await supabase.auth.getSession();
-        const sessionUser = data.session?.user ?? null;
-
-        if (!mounted) return;
-
-        if (!sessionUser) {
-          setIsLoggedIn(false);
-          setAuthUserId(null);
-          setUserRole(null);
-          setAppliedJobs([]);
-          setJobs([]);
-          return;
+          localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
         }
-
-        setIsLoggedIn(true);
-        setAuthUserId(sessionUser.id);
-
-        await loadRoleFromDb(sessionUser.id);
-        await loadJobsFromDb();
-        await loadAppliedFromDb(sessionUser.id);
       }
 
-      init();
+      if (!mounted) return;
 
-      // ascolta login/logout
-      const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        const u = session?.user ?? null;
+      if (!u) {
+        setIsLoggedIn(false);
+        setAuthUserId(null);
+        setUserRole(null);
+        setAppliedJobs([]);
+        setJobs([]);
+        setSelectedJob(null);
+        setActiveTab("home");
+        return;
+      }
 
-        // ✅ Se torno da Google, applico il ruolo scelto prima del redirect
-        if (session?.user) {
-          const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
-            | "worker"
-            | "employer"
-            | null;
+      setIsLoggedIn(true);
+      setAuthUserId(u.id);
 
-          if (pendingRole) {
-            await supabase
-              .from("profiles")
-              .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
+      await loadRoleFromDb(u.id);
+      await loadJobsFromDb();
+      await loadAppliedFromDb(u.id);
+    });
 
-            localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
-          }
-        }
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
-        if (!mounted) return;
+  // responsive calendar
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setNumberOfDays(computeNumberOfDays(window.innerWidth));
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
-        if (!u) {
-          setIsLoggedIn(false);
-          setAuthUserId(null);
-          setUserRole(null);
-          setAppliedJobs([]);
-          setJobs([]);
-          setSelectedJob(null);
-          setActiveTab("home");
-          return;
-        }
+  // close spotlight when tab changes
+  useEffect(() => {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+  }, [activeTab]);
 
-        setIsLoggedIn(true);
-        setAuthUserId(u.id);
+  // open spotlight if ?search=1
+  useEffect(() => {
+    const shouldOpen = searchParams.get("search") === "1";
+    if (shouldOpen) setIsSearchOpen(true);
+  }, [searchParams]);
 
-        await loadRoleFromDb(u.id);
-        await loadJobsFromDb();
-        await loadAppliedFromDb(u.id);
+  // redirect employer (DB role)
+  // useEffect(() => {
+  //   if (isLoggedIn && userRole === "employer") {
+  //     router.replace("/employer");
+  //   }
+  // }, [isLoggedIn, userRole, router]);
+
+  // -------------------------
+  // ACTIONS (DB)
+  // -------------------------
+  function handleLogin(_role: "worker" | "employer") {
+    // Non settiamo più localStorage.
+    // Il vero “logged” arriva da onAuthStateChange sopra.
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.replace("/"); // niente /login (eviti 404)
+  }
+
+  const handleApply = async (jobId: string) => {
+    const {
+      data: { user },
+      error: uErr,
+    } = await supabase.auth.getUser();
+
+    if (uErr) {
+      console.error(uErr);
+      return;
+    }
+
+    if (!user) {
+      alert("Devi essere loggato");
+      return;
+    }
+
+    // ✅ inserisce candidatura nel DB
+    const { error } = await supabase
+      .from("applications")
+      .insert({
+        worker_id: user.id,
+        job_id: jobId,
+        status: "applied",
       });
 
-      return () => {
-        mounted = false;
-        sub.subscription.unsubscribe();
-      };
-    }, []);
-
-    // responsive calendar
-    useEffect(() => {
-      if (typeof window === "undefined") return;
-      const onResize = () => setNumberOfDays(computeNumberOfDays(window.innerWidth));
-      onResize();
-      window.addEventListener("resize", onResize);
-      return () => window.removeEventListener("resize", onResize);
-    }, []);
-
-    // close spotlight when tab changes
-    useEffect(() => {
-      setIsSearchOpen(false);
-      setSearchQuery("");
-    }, [activeTab]);
-
-    // open spotlight if ?search=1
-    useEffect(() => {
-      const shouldOpen = searchParams.get("search") === "1";
-      if (shouldOpen) setIsSearchOpen(true);
-    }, [searchParams]);
-
-    // redirect employer (DB role)
-    // useEffect(() => {
-    //   if (isLoggedIn && userRole === "employer") {
-    //     router.replace("/employer");
-    //   }
-    // }, [isLoggedIn, userRole, router]);
-
-    // -------------------------
-    // ACTIONS (DB)
-    // -------------------------
-    function handleLogin(_role: "worker" | "employer") {
-      // Non settiamo più localStorage.
-      // Il vero “logged” arriva da onAuthStateChange sopra.
+    // evita errore se già candidato
+    // @ts-ignore
+    if (error && error.code !== "23505") {
+      console.error(error);
+      alert("Errore candidatura");
+      return;
     }
 
-    async function handleLogout() {
-      await supabase.auth.signOut();
-      router.replace("/"); // niente /login (eviti 404)
-    }
+    // await supabase
+    //   .from("applications")
+    //   .insert({
+    //     worker_id: user.id,
+    //     job_id: jobId,
+    //     status: "applied",
+    //   });
+    // trova employer del job
+    const { data: jobData } = await supabase
+      .from("jobs")
+      .select("employer_id, role")
+      .eq("id", jobId)
+      .single();
 
-    const handleApply = async (jobId: string) => {
-      const {
-        data: { user },
-        error: uErr,
-      } = await supabase.auth.getUser();
-
-      if (uErr) {
-        console.error(uErr);
-        return;
-      }
-
-      if (!user) {
-        alert("Devi essere loggato");
-        return;
-      }
-
-      // ✅ inserisce candidatura nel DB
-      const { error } = await supabase
-        .from("applications")
-        .insert({
-          worker_id: user.id,
-          job_id: jobId,
-          status: "applied",
-        });
-
-      // evita errore se già candidato
-      // @ts-ignore
-      if (error && error.code !== "23505") {
-        console.error(error);
-        alert("Errore candidatura");
-        return;
-      }
-
-      // await supabase
-      //   .from("applications")
-      //   .insert({
-      //     worker_id: user.id,
-      //     job_id: jobId,
-      //     status: "applied",
-      //   });
-
-      // ✅ manda email al datore
-      await fetch("/api/send-application-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId }),
+    if (jobData?.employer_id) {
+      await supabase.from("notifications").insert({
+        user_id: jobData.employer_id,
+        title: "Nuova candidatura",
+        body: `Nuovo candidato per ${jobData.role}`,
+        type: "application",
       });
+    }
+    // ✅ manda email al datore
+    await fetch("/api/send-application-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId }),
+    });
 
-      // aggiorna UI locale
-      setAppliedJobs((prev) => [...prev, jobId]);
+    // aggiorna UI locale
+    setAppliedJobs((prev) => [...prev, jobId]);
 
-      // notifica ApplicationsPage
+    // notifica ApplicationsPage
+    window.dispatchEvent(new Event("applications-updated"));
+  };
+
+  const handleWithdraw = async (jobId: string) => {
+    try {
+      await withdrawApplication(jobId);
+      await syncAppliedJobs(); // ✅ torna “Candidati”
       window.dispatchEvent(new Event("applications-updated"));
-    };
-
-    const handleWithdraw = async (jobId: string) => {
-      try {
-        await withdrawApplication(jobId);
-        await syncAppliedJobs(); // ✅ torna “Candidati”
-        window.dispatchEvent(new Event("applications-updated"));
-      } catch (e: any) {
-        alert(e?.message ?? "Errore annullamento candidatura");
-      }
-    };
+    } catch (e: any) {
+      alert(e?.message ?? "Errore annullamento candidatura");
+    }
+  };
 
   const addJob = async (job: Omit<Job, "id">) => {
     const { data: auth } = await supabase.auth.getUser();
     const user = auth.user;
-    
+
     if (!user) {
       alert("Devi essere loggato per pubblicare un lavoro");
       return;
@@ -622,26 +636,26 @@ useEffect(() => {
   };
 
 
-    function openSearch() {
-      setIsSearchOpen(true);
-      setSearchQuery("");
-    }
+  function openSearch() {
+    setIsSearchOpen(true);
+    setSearchQuery("");
+  }
 
-    // -------------------------
-    // RENDER HOME TAB (UI IDENTICA)
-    // -------------------------
+  // -------------------------
+  // RENDER HOME TAB (UI IDENTICA)
+  // -------------------------
   const renderHome = () => {
     if (isCheckingAuth) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center bg-white">
-        <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
-          <Image src="/logo2.png" width={80} height={80} alt="Logo" />
-        </motion.div>
-      </div>
-    );
-  }
+      return (
+        <div className="h-screen flex flex-col items-center justify-center bg-white">
+          <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
+            <Image src="/logo2.png" width={80} height={80} alt="Logo" />
+          </motion.div>
+        </div>
+      );
+    }
     // --- 1. UTENTE NON LOGGATO ---
-      if (!isLoggedIn) {
+    if (!isLoggedIn) {
       if (!entryChoice) {
         return (
           <div className="relative min-h-[100vh] flex flex-col items-center justify-center p-6 overflow-hidden">
@@ -655,7 +669,7 @@ useEffect(() => {
               className="w-full max-w-md z-10"
             >
               <div className="text-center mb-12 space-y-3">
-                <motion.h1 
+                <motion.h1
                   initial={{ y: -20 }}
                   animate={{ y: 0 }}
                   className="text-5xl font-black text-slate-900 tracking-tighter"
@@ -719,7 +733,7 @@ useEffect(() => {
           </div>
           <div className="flex-1">
             <Login
-              onLogin={() => {}} 
+              onLogin={() => { }}
               defaultRole={entryChoice}
               lockRole
             />
@@ -737,8 +751,8 @@ useEffect(() => {
             <div className="absolute top-0 w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
           <div className="text-center">
-              <p className="font-black text-slate-900 text-xl tracking-tight">Stiamo arrivando...</p>
-              <p className="text-sm font-bold text-slate-400">Caricamento del tuo profilo</p>
+            <p className="font-black text-slate-900 text-xl tracking-tight">Stiamo arrivando...</p>
+            <p className="text-sm font-bold text-slate-400">Caricamento del tuo profilo</p>
           </div>
         </div>
       );
@@ -777,131 +791,131 @@ useEffect(() => {
     return null;
   };
 
-    // -------------------------
-    // MAIN RENDER (UI IDENTICA)
-    // -------------------------
-    return (
-      <main className="min-h-screen bg-slate-100">
-  {isLoggedIn && (
-    <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
-      {/* Contenitore Logo + Testo */}
-      <div 
-        className="flex items-center gap-3 cursor-pointer" 
-        onClick={() => router.push("/")}
-      >
-        <Image 
-          src="/logo2.png"
-          alt="Logo" 
-          width={32} 
-          height={32} 
-          priority // Carica il logo immediatamente
-          className="object-contain"
-        />
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-          extra<span className="text-emerald-500">Job</span>
-        </h1>
-      </div>
-    </header>
-  )}
-
-        {activeTab === "home" && renderHome()}
-        {isLoggedIn && activeTab === "applications" && <ApplicationsPage />}
-        {isLoggedIn && activeTab === "profile" && <ProfilePage />}
-
-        {searchParams.get("search") === "1" && (
+  // -------------------------
+  // MAIN RENDER (UI IDENTICA)
+  // -------------------------
+  return (
+    <main className="min-h-screen bg-slate-100">
+      {isLoggedIn && (
+        <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
+          {/* Contenitore Logo + Testo */}
           <div
-            className="
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => router.push("/")}
+          >
+            <Image
+              src="/logo2.png"
+              alt="Logo"
+              width={32}
+              height={32}
+              priority // Carica il logo immediatamente
+              className="object-contain"
+            />
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              extra<span className="text-emerald-500">Job</span>
+            </h1>
+          </div>
+        </header>
+      )}
+
+      {activeTab === "home" && renderHome()}
+      {isLoggedIn && activeTab === "applications" && <ApplicationsPage />}
+      {isLoggedIn && activeTab === "profile" && <ProfilePage />}
+
+      {searchParams.get("search") === "1" && (
+        <div
+          className="
         fixed inset-0 z-50
         !bg-grey-100/80
         backdrop-blur-sm
         flex items-start justify-center pt-28
       "
-            onClick={() => router.push("/")}
-          >
-            <div className="w-[90%] max-w-xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-center mb-2">
-                <div className="w-10 h-1.5 !rounded-full bg-gray-300" />
-              </div>
-
-              <div
-                className="bg-white !rounded-2xl shadow-2xl px-5 py-4"
-                onTouchStart={(e) => setTouchStartY(e.touches[0].clientY)}
-                onTouchMove={(e) => {
-                  if (touchStartY === null) return;
-                  const diff = e.touches[0].clientY - touchStartY;
-                  if (diff > 80) {
-                    setIsSearchOpen(false);
-                    setTouchStartY(null);
-                  }
-                }}
-                onTouchEnd={() => setTouchStartY(null)}
-              >
-                <input
-                  autoFocus
-                  type="text"
-                  placeholder="Cerca lavoro o città…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setIsSearchOpen(false);
-                  }}
-                  className="w-full text-lg outline-none"
-                />
-              </div>
-
-              {searchQuery.trim() !== "" && (
-                <div className="mt-3 bg-white !rounded-2xl shadow-xl overflow-hidden">
-                  {jobs.filter(
-                    (job) =>
-                      job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      job.location.toLowerCase().includes(searchQuery.toLowerCase())
-                  ).length === 0 ? (
-                    <p className="p-4 text-sm text-gray-500">Nessun risultato</p>
-                  ) : (
-                    jobs
-                      .filter(
-                        (job) =>
-                          job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          job.location.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .slice(0, 5)
-                      .map((job) => (
-                        <button
-                          key={job.id}
-                          className="w-full text-left px-4 py-3 !hover:bg-gray-100 transition"
-                          onClick={() => {
-                            setIsSearchOpen(false);
-                            setSearchQuery("");
-                            setSelectedJob(job);
-                          }}
-                        >
-                          <div className="font-semibold">{job.role}</div>
-                          <div className="text-sm text-gray-500">
-                            {job.location} • {job.pay}
-                          </div>
-                        </button>
-                      ))
-                  )}
-                </div>
-              )}
+          onClick={() => router.push("/")}
+        >
+          <div className="w-[90%] max-w-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-center mb-2">
+              <div className="w-10 h-1.5 !rounded-full bg-gray-300" />
             </div>
+
+            <div
+              className="bg-white !rounded-2xl shadow-2xl px-5 py-4"
+              onTouchStart={(e) => setTouchStartY(e.touches[0].clientY)}
+              onTouchMove={(e) => {
+                if (touchStartY === null) return;
+                const diff = e.touches[0].clientY - touchStartY;
+                if (diff > 80) {
+                  setIsSearchOpen(false);
+                  setTouchStartY(null);
+                }
+              }}
+              onTouchEnd={() => setTouchStartY(null)}
+            >
+              <input
+                autoFocus
+                type="text"
+                placeholder="Cerca lavoro o città…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setIsSearchOpen(false);
+                }}
+                className="w-full text-lg outline-none"
+              />
+            </div>
+
+            {searchQuery.trim() !== "" && (
+              <div className="mt-3 bg-white !rounded-2xl shadow-xl overflow-hidden">
+                {jobs.filter(
+                  (job) =>
+                    job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    job.location.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 ? (
+                  <p className="p-4 text-sm text-gray-500">Nessun risultato</p>
+                ) : (
+                  jobs
+                    .filter(
+                      (job) =>
+                        job.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        job.location.toLowerCase().includes(searchQuery.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map((job) => (
+                      <button
+                        key={job.id}
+                        className="w-full text-left px-4 py-3 !hover:bg-gray-100 transition"
+                        onClick={() => {
+                          setIsSearchOpen(false);
+                          setSearchQuery("");
+                          setSelectedJob(job);
+                        }}
+                      >
+                        <div className="font-semibold">{job.role}</div>
+                        <div className="text-sm text-gray-500">
+                          {job.location} • {job.pay}
+                        </div>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        <JobDetailsSheet
-          job={selectedJob}
-          onClose={() => setSelectedJob(null)}
-          applied={selectedJob ? appliedJobs.includes(selectedJob.id) : false}
-          onApply={(id) => handleApply(id)}
-          onWithdraw={async (id) => {
-            // ✅ subito UI
-            setAppliedJobs((prev) => prev.filter((x) => x !== id));
+      <JobDetailsSheet
+        job={selectedJob}
+        onClose={() => setSelectedJob(null)}
+        applied={selectedJob ? appliedJobs.includes(selectedJob.id) : false}
+        onApply={(id) => handleApply(id)}
+        onWithdraw={async (id) => {
+          // ✅ subito UI
+          setAppliedJobs((prev) => prev.filter((x) => x !== id));
 
-            // ✅ riallinea dal DB
-            await syncAppliedJobs();
-          }}
-        />
-        {/* {sessionChecked && hasSession && userRole === "worker" && (
+          // ✅ riallinea dal DB
+          await syncAppliedJobs();
+        }}
+      />
+      {/* {sessionChecked && hasSession && userRole === "worker" && (
     <BottomBar
       activeTab={activeTab}
       onChange={(t) => setActiveTab(t)}
@@ -910,18 +924,18 @@ useEffect(() => {
     />
   )} */}
 
-  {/* BUG REPORT LINK */}
-  <div className="flex justify-center pb-8 pt-4">
-    <a 
-      href="mailto:extrajobapp@outlook.com?subject=Segnalazione Bug extraJob"
-      className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors group"
-    >
-      <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-700">
-        Segnala un bug o un suggerimento
-      </span>
-    </a>
-  </div>
-      </main>
-    );
-  }
+      {/* BUG REPORT LINK */}
+      <div className="flex justify-center pb-8 pt-4">
+        <a
+          href="mailto:extrajobapp@outlook.com?subject=Segnalazione Bug extraJob"
+          className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors group"
+        >
+          <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-700">
+            Segnala un bug o un suggerimento
+          </span>
+        </a>
+      </div>
+    </main>
+  );
+}

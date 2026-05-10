@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Assicurati che il nome sia corretto (o SUPABASE_SERVICE_ROLE_KEY)
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
@@ -50,19 +50,48 @@ export async function POST(req: Request) {
   try {
     const jobData = JSON.parse(jobDataRaw);
 
-const { error: dbError } = await supabase.from("jobs").insert({
-  employer_id: userId,
-  role: jobData.role,
-  location: jobData.location,
-  pay: jobData.pay,
-  start_date: jobData.startDate,
-  end_date: jobData.endDate,
-  business_name: jobData.business_name, // <-- ORA SALVERÀ IL NOME VERO
-});
+    const { error: dbError } = await supabase.from("jobs").insert({
+      employer_id: userId,
+      role: jobData.role,
+      location: jobData.location,
+      pay: jobData.pay,
+      start_date: jobData.startDate,
+      end_date: jobData.endDate,
+      business_name: jobData.business_name, // <-- ORA SALVERÀ IL NOME VERO
+    });
 
     if (dbError) {
       console.error("❌ ERRORE SUPABASE:", dbError.message);
       return new Response("Database Error", { status: 500 });
+    }
+
+    // ✅ CREA NOTIFICHE AI WORKER
+    const { data: workers, error: workersError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "worker");
+
+    if (workersError) {
+      console.error("❌ ERRORE WORKERS:", workersError.message);
+    }
+
+    if (workers && workers.length > 0) {
+      const notifications = workers.map((worker) => ({
+        user_id: worker.id,
+        title: "Nuovo lavoro disponibile",
+        body: `${jobData.role} • ${jobData.location}`,
+        type: "job",
+      }));
+
+      const { error: notifError } = await supabase
+        .from("notifications")
+        .insert(notifications);
+
+      if (notifError) {
+        console.error("❌ ERRORE NOTIFICHE:", notifError.message);
+      } else {
+        console.log("🔔 NOTIFICHE CREATE!");
+      }
     }
 
     console.log("🚀 LAVORO SALVATO CON SUCCESSO!");
