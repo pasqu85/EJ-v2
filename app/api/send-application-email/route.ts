@@ -54,22 +54,56 @@ export async function POST(req: Request) {
       to: employerEmail,
       subject: "Nuova candidatura ricevuta",
       html: `
-        <div style="font-family:sans-serif">
-          <h2>Hai ricevuto una nuova candidatura 🎉</h2>
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 40px 20px;">
+  <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
+    
+    <div style="background-color: #10b981; padding: 30px; text-align: center;">
+      <h2 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">
+        extraJob
+      </h2>
+    </div>
 
-          <p>
-            Un worker si è candidato per:
-          </p>
+    <div style="padding: 30px;">
+      <h1 style="font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 16px;">
+        Nuova candidatura ricevuta! 🎉
+      </h1>
+      
+      <p style="color: #64748b; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
+        Ottime notizie! Un worker ha appena inviato la sua candidatura per la tua posizione aperta.
+      </p>
 
-          <div style="padding:16px;border:1px solid #eee;border-radius:12px">
-            <strong>${job.role}</strong><br/>
-            ${job.location}
-          </div>
-
-          <p style="margin-top:20px">
-            Accedi a ExtraJobs per vedere i dettagli.
-          </p>
+      <div style="background-color: #f8fafc; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0;">
+        <span style="display: block; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+          Posizione
+        </span>
+        <strong style="display: block; font-size: 18px; color: #0f172a; margin-bottom: 12px;">
+          ${job.role}
+        </strong>
+        
+        <div style="display: flex; align-items: center; color: #64748b; font-size: 14px; font-weight: 600;">
+           📍 ${job.location}
         </div>
+      </div>
+
+      <div style="margin-top: 32px; text-align: center;">
+        <a href="https://www.extrajob.it/employer" 
+           style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 16px 32px; border-radius: 14px; text-decoration: none; font-weight: 800; font-size: 16px; transition: all 0.2s;">
+          Vedi Candidatura
+        </a>
+      </div>
+
+      <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 32px;">
+        Non rispondere a questa email. Per gestire i tuoi annunci accedi alla tua area riservata.
+      </p>
+    </div>
+  </div>
+  
+  <div style="text-align: center; margin-top: 20px;">
+    <p style="color: #94a3b8; font-size: 12px;">
+      © 2026 extraJob. Il lavoro extra, semplificato.
+    </p>
+  </div>
+</div>
       `,
     });
 
