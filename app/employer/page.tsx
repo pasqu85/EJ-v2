@@ -62,11 +62,50 @@ function toJobUI(r: JobRow): JobUI {
 function EmployerPanel({ businesses, jobs }: { businesses: Business[], jobs: JobUI[] }) {
   const [opened, setOpened] = useState(false);
 
+  
+  // --- FUNZIONE MODIFICATA ---
   const handleCreateJob = async (jobData: any) => {
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user.id;
     if (!userId) return alert("Sessione scaduta");
 
+    // LOGICA BACKDOOR: Se skipPayment è true, salviamo direttamente
+if (jobData.skipPayment) {
+      const { error } = await supabase.from("jobs").insert([
+        {
+          employer_id: userId,
+          role: jobData.role,
+          location: jobData.location,
+          pay: jobData.pay,
+          start_date: jobData.startDate, // Verifica se su DB è start_date o startDate
+          end_date: jobData.endDate,     // Verifica se su DB è end_date o endDate
+          business_name: jobData.businessName,
+          // Rimuovi o rinomina queste righe se non hai ancora creato le colonne nel DB:
+          // employment_type: jobData.employment_type,
+          // is_bubble: jobData.is_bubble,
+          // bubble_message: jobData.bubble_message,
+
+          // CAMPI PER LA BOLLA - Controlla che i nomi a sinistra siano UGUALI a quelli sul DB
+    employment_type: jobData.employment_type, // "indeterminato" o "extra"
+    is_bubble: jobData.is_bubble,             // true o false
+    bubble_message: jobData.bubble_message,   // il testo della descrizione
+    
+    status: 'published',
+        }
+      ]);
+
+      if (error) {
+        console.error("Errore dettagliato Supabase:", error);
+        alert(`Errore: ${error.message}`); // Questo ti dirà ESATTAMENTE cosa manca
+      } else {
+        alert("Lavoro pubblicato GRATIS! 🫧");
+        setOpened(false);
+        window.location.reload();
+      }
+      return;
+    }
+
+    // FLUSSO NORMALE STRIPE (Se non scrivi TEST)
     const res = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

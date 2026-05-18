@@ -19,6 +19,7 @@ import { supabase } from "./lib/supabaseClient";
 import BottomBar from "@/components/BottomBar";
 import { applyToJob, getMyAppliedJobIds, withdrawApplication } from "@/app/lib/applications";
 import Image from "next/image";
+import FloatingBubble from "@/components/FloatingBubble";
 
 
 
@@ -37,6 +38,9 @@ export type Job = {
   pay: string;
   businessName?: string;
   business_name?: string;
+  is_bubble?: boolean;
+  bubble_message?: string;
+  employment_type?: "extra" | "indeterminato";
 };
 
 // -------------------------
@@ -326,7 +330,7 @@ export default function Home() {
   async function loadJobsFromDb() {
     const { data, error } = await supabase
       .from("jobs")
-      .select("id, role, location, pay, start_date, end_date, business_name") // business_name deve esistere in DB
+      .select("id, role, location, pay, start_date, end_date, business_name, is_bubble, bubble_message, employment_type") // business_name deve esistere in DB
       .order("created_at", { ascending: false });
 
     if (error) return;
@@ -339,6 +343,9 @@ export default function Home() {
       startDate: new Date(j.start_date), // Fondamentale per le ore
       endDate: new Date(j.end_date),     // Fondamentale per le ore
       business_name: j.business_name,
+      is_bubble: j.is_bubble,
+    bubble_message: j.bubble_message,
+    employment_type: j.employment_type
     }));
 
     setJobs(mapped);
@@ -796,6 +803,20 @@ export default function Home() {
   // -------------------------
   return (
     <main className="min-h-screen bg-slate-100">
+      {isLoggedIn && (
+<FloatingBubble 
+  bubbleJobs={jobs
+    .filter(j => j.is_bubble)
+    .map(j => ({
+      id: j.id,
+      role: j.role,
+      message: j.bubble_message || "", // Mappa bubble_message su message
+      type: j.employment_type || "extra" // Mappa employment_type su type
+    }))
+  } 
+  onApply={(id) => handleApply(id)} 
+/>
+    )}
       {isLoggedIn && (
         <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
           {/* Contenitore Logo + Testo */}
