@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       </h1>
       
       <p style="color: #64748b; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
-        Ottime notizie! Un worker ha appena inviato la sua candidatura per la tua posizione aperta.
+        Ottime notizie! Un untente ha appena inviato la sua candidatura per la tua posizione aperta.
       </p>
 
       <div style="background-color: #f8fafc; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0;">
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
       </div>
 
       <div style="margin-top: 32px; text-align: center;">
-        <a href="https://www.extrajob.it/employer" 
+        <a href="https://www.extrajobs.app/employer" 
            style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 16px 32px; border-radius: 14px; text-decoration: none; font-weight: 800; font-size: 16px; transition: all 0.2s;">
           Vedi Candidatura
         </a>
