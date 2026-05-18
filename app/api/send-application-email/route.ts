@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     await resend.emails.send({
       from: "ExtraJobs <notifications@extrajobs.app>",
       to: employerEmail,
-      subject: "Nuova candidatura ricevuta",
+      subject: "Nuova candidatura ricevuta ora",
       html: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 40px 20px;">
   <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
