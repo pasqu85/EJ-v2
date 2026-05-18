@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       </h1>
       
       <p style="color: #64748b; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
-        Ottime notizie! Un untente ha appena inviato la sua candidatura per la tua posizione aperta.
+        Ottime notizie! Un nuovo untente ha appena inviato la sua candidatura per la tua posizione aperta.
       </p>
 
       <div style="background-color: #f8fafc; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0;">
