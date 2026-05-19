@@ -61,10 +61,10 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
   // --- QUESTA È LA FUNZIONE MODIFICATA ---
   const handleFinalSubmit = () => {
     const startDate = combineDayAndTime(formData.startDay, formData.startTime);
-    const endDate = formData.isIndeterminato 
-      ? startDate 
+    const endDate = formData.isIndeterminato
+      ? startDate
       : combineDayAndTime(formData.endDay, formData.endTime);
-    
+
     // Controlliamo se hai scritto TEST nel campo paga
     const isTestMode = formData.pay.trim().toUpperCase() === "TEST";
 
@@ -79,7 +79,7 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
       is_bubble: formData.isIndeterminato,
       bubble_message: formData.isIndeterminato ? formData.bubbleMessage : null,
       // Aggiungiamo questa istruzione per il componente EmployerPanel
-      skipPayment: isTestMode 
+      skipPayment: isTestMode
     });
   };
 
@@ -139,8 +139,9 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               variant="filled"
               size="md"
               value={formData.startDay}
-              onChange={(value) => {
-                const d = value instanceof Date ? value : new Date();
+              onChange={(value: any) => {
+                // Verifichiamo se è una data valida, altrimenti usiamo oggi
+                const d = (value && value instanceof Date) ? value : new Date();
                 setFormData((prev) => ({ ...prev, startDay: d, endDay: d }));
               }}
             />
@@ -203,8 +204,8 @@ export default function AddJobStepper({ businesses, onComplete }: AddJobStepperP
               size="md"
               value={formData.endDay}
               minDate={formData.startDay}
-              onChange={(value) => {
-                const d = value instanceof Date ? value : formData.startDay;
+              onChange={(value: any) => {
+                const d = (value && value instanceof Date) ? value : formData.startDay;
                 setFormData((prev) => ({ ...prev, endDay: d }));
               }}
             />
