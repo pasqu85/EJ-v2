@@ -16,7 +16,6 @@ const ONEUI_SPRING = { type: "spring", stiffness: 900, damping: 70, mass: 0.7 } 
 
 export type Tab = "home" | "applications" | "search" | "profile";
 
-// ✅ DEFINIZIONE DI ALLTABS (Spostata qui per essere accessibile)
 const allTabs: {
   id: Tab;
   Icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>;
@@ -41,59 +40,49 @@ export default function BottomBar({
   const isHome = activeTab === "home";
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // RECUPERA L'AVATAR
   useEffect(() => {
     async function getAvatar() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("avatar_url")
-        .eq("id", user.id)
-        .single();
-
-      if (data?.avatar_url) {
-        setAvatarUrl(data.avatar_url);
-      }
+      const { data } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).single();
+      if (data?.avatar_url) setAvatarUrl(data.avatar_url);
     }
-
     getAvatar();
-
-    // Ascolta i cambiamenti nel profilo per aggiornare la foto live
-    const channel = supabase
-      .channel('profile-changes')
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'profiles' }, 
-        (payload) => {
-          if (payload.new.avatar_url) {
-            setAvatarUrl(payload.new.avatar_url);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60]">
-      <div className="flex items-center gap-3">
-        {/* PILL */}
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60]">
+      <div className="relative flex items-center gap-3">
+        
+        {/* PILLOLA PRINCIPALE CON BORDO ANIMATO */}
         <motion.div
           layout
           transition={ONEUI_SPRING}
-          className={clsx(
-            "flex items-center !rounded-full overflow-hidden",
-            "bg-white/55 backdrop-blur-2xl border border-white/30",
-            "shadow-[0_8px_30px_rgba(0,0,0,0.12)]",
-            "will-change-transform"
-          )}
+          className="relative !rounded-full p-[1.5px] overflow-hidden" // Lo spessore del bordo
+          style={{
+            background: "rgba(255, 255, 255, 0.2)", // Bordo base semitrasparente
+          }}
         >
+          {/* ✨ IL FASCIO LUMINOSO (Corre sul bordo) ✨ */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[300%]"
+            style={{
+              background: "conic-gradient(from 0deg, transparent 0deg, #1aa934ff 20deg, #abe3a0ff 40deg, #45e442ff 60deg, transparent 90deg)",
+              filter: "blur(4px)",
+            }}
+          />
+
+          {/* CONTENUTO INTERNO (Copre il centro, lasciando vedere solo il bordo) */}
           <motion.div
             layout
             transition={ONEUI_SPRING}
-            className={clsx("flex items-center", isHome ? "px-6 py-3 gap-6" : "px-3 py-2 gap-3")}
+            className={clsx(
+              "flex items-center !rounded-full relative z-10",
+              "bg-white/70 backdrop-blur-3xl", // Sfondo della barra
+              isHome ? "px-6 py-3 gap-6" : "px-3 py-2 gap-3"
+            )}
           >
             <AnimatePresence initial={false} mode="popLayout">
               {allTabs.map(({ id, Icon }) => {
@@ -106,36 +95,29 @@ export default function BottomBar({
                   <motion.button
                     key={id}
                     layout="position"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.85 }}
-                    transition={{ duration: 0.09 }}
-                    whileTap={{ scale: 0.96 }}
                     onClick={() => {
                       if (id === "search") onSearch();
                       else onChange(id as Exclude<Tab, "search">);
                     }}
                     className={clsx(
                       btnSize,
-                      "!rounded-full flex items-center justify-center transition overflow-hidden relative",
+                      "!rounded-full flex items-center justify-center transition relative overflow-hidden",
                       active && id !== "profile" 
                         ? "bg-emerald-500 text-white bg-linear-to-r from-emerald-700 to-emerald-400" 
                         : "text-gray-500 hover:bg-white/40 "
                     )}
-                    aria-label={id}
                   >
-                    {/* LOGICA AVATAR VS ICONA */}
                     {id === "profile" && avatarUrl ? (
                       <img 
                         src={avatarUrl} 
-                        alt="Profilo" 
+                        alt="P" 
                         className={clsx(
                           "w-full h-full object-cover rounded-full",
-                          active ? "border-2 border-emerald-500 scale-110" : "opacity-80"
+                          active ? "border-2 border-emerald-500" : "opacity-80"
                         )} 
                       />
                     ) : (
-                      <Icon size={isHome ? 24 : 22} stroke={active ? 2.2 : 1.9} />
+                      <Icon size={isHome ? 24 : 22} stroke={active ? 2.5 : 2.2} />
                     )}
                   </motion.button>
                 );
@@ -144,22 +126,32 @@ export default function BottomBar({
           </motion.div>
         </motion.div>
 
-        {/* BACK bubble a destra SOLO fuori home */}
+        {/* BACK BUBBLE CON BORDO ANIMATO MINI */}
         <AnimatePresence initial={false}>
           {!isHome && (
-            <motion.button
-              key="back-bubble"
-              initial={{ opacity: 0, x: -6, scale: 0.92 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -6, scale: 0.92 }}
-              transition={ONEUI_SPRING}
-              whileTap={{ scale: 0.92 }}
-              onClick={onBackHome}
-              className="w-12 h-12 !rounded-full bg-white/55 backdrop-blur-2xl border border-white/30 shadow-[0_8px_30px_rgba(0,0,0,0.12)] flex items-center justify-center"
-              aria-label="Indietro"
+            <motion.div
+              key="back-bubble-container"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="relative p-[1.5px] !rounded-full overflow-hidden"
             >
-              <IconChevronLeft size={22} stroke={2.2} className="text-gray-700" />
-            </motion.button>
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%]"
+                style={{
+                  background: "conic-gradient(from 0deg, transparent 0deg, #4285f4 40deg, transparent 80deg)",
+                  filter: "blur(2px)",
+                }}
+              />
+              <button
+                onClick={onBackHome}
+                className="w-12 h-12 !rounded-full bg-white/70 backdrop-blur-3xl flex items-center justify-center relative z-10"
+              >
+                <IconChevronLeft size={22} stroke={2.5} className="text-gray-700" />
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
