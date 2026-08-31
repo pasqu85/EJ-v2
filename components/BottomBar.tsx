@@ -14,6 +14,16 @@ import {
 
 const ONEUI_SPRING = { type: "spring", stiffness: 900, damping: 70, mass: 0.7 } as const;
 
+const LIQUID_GLASS = {
+  background:
+    "linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.32) 52%, rgba(220,252,231,0.28) 100%)",
+  border: "1px solid rgba(255,255,255,0.7)",
+  boxShadow:
+    "0 18px 40px rgba(15,23,42,0.16), inset 0 1px 1px rgba(255,255,255,0.85), inset 0 -1px 1px rgba(15,23,42,0.06)",
+  backdropFilter: "blur(24px) saturate(180%)",
+  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+} as const;
+
 export type Tab = "home" | "applications" | "search" | "profile";
 
 const allTabs: {
@@ -58,13 +68,11 @@ export default function BottomBar({
         <motion.div
           layout
           transition={ONEUI_SPRING}
-          className="relative !rounded-full p-[1.5px] overflow-hidden" // Lo spessore del bordo
-          style={{
-            background: "rgba(255, 255, 255, 0.2)", // Bordo base semitrasparente
-          }}
+className="relative !rounded-full overflow-hidden"
+style={LIQUID_GLASS}
         >
           {/* ✨ IL FASCIO LUMINOSO (Corre sul bordo) ✨ */}
-          <motion.div
+          {/* <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[300%]"
@@ -72,15 +80,18 @@ export default function BottomBar({
               background: "conic-gradient(from 0deg, transparent 0deg, #1aa934ff 20deg, #abe3a0ff 40deg, #45e442ff 60deg, transparent 90deg)",
               filter: "blur(4px)",
             }}
-          />
-
+          /> */}
+<div
+  aria-hidden
+  className="pointer-events-none absolute inset-x-5 top-0 h-1/2 rounded-full bg-linear-to-b from-white/55 to-transparent"
+/>
           {/* CONTENUTO INTERNO (Copre il centro, lasciando vedere solo il bordo) */}
           <motion.div
             layout
             transition={ONEUI_SPRING}
             className={clsx(
               "flex items-center !rounded-full relative z-10",
-              "bg-white/70 backdrop-blur-3xl", // Sfondo della barra
+              "bg-transparent", // Sfondo della barra
               isHome ? "px-6 py-3 gap-6" : "px-3 py-2 gap-3"
             )}
           >
@@ -129,29 +140,30 @@ export default function BottomBar({
         {/* BACK BUBBLE CON BORDO ANIMATO MINI */}
         <AnimatePresence initial={false}>
           {!isHome && (
-            <motion.div
-              key="back-bubble-container"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="relative p-[1.5px] !rounded-full overflow-hidden"
-            >
-              <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%]"
-                style={{
-                  background: "conic-gradient(from 0deg, transparent 0deg, #4285f4 40deg, transparent 80deg)",
-                  filter: "blur(2px)",
-                }}
-              />
-              <button
-                onClick={onBackHome}
-                className="w-12 h-12 !rounded-full bg-white/70 backdrop-blur-3xl flex items-center justify-center relative z-10"
-              >
+            // <motion.div
+            //   key="back-bubble-container"
+            //   initial={{ opacity: 0, scale: 0.8 }}
+            //   animate={{ opacity: 1, scale: 1 }}
+            //   exit={{ opacity: 0, scale: 0.8 }}
+            //   className="relative p-[1.5px] !rounded-full overflow-hidden"
+            // >
+            //   <motion.div
+            //     animate={{ rotate: -360 }}
+            //     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            //     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%]"
+            //     style={{
+            //       background: "conic-gradient(from 0deg, transparent 0deg, #4285f4 40deg, transparent 80deg)",
+            //       filter: "blur(2px)",
+            //     }}
+            //   />
+<button
+  onClick={onBackHome}
+  style={LIQUID_GLASS}
+  className="w-12 h-12 !rounded-full flex items-center justify-center relative z-10"
+>
                 <IconChevronLeft size={22} stroke={2.5} className="text-gray-700" />
               </button>
-            </motion.div>
+            // </motion.div>
           )}
         </AnimatePresence>
       </div>

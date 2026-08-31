@@ -3,12 +3,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { withdrawApplication } from "@/app/lib/applications";
-import { 
-  IconCash, 
-  IconClock, 
-  IconMapPin, 
-  IconX, 
-  IconBrandWhatsapp, 
+import {
+  IconCash,
+  IconClock,
+  IconMapPin,
+  IconX,
+  IconBrandWhatsapp,
   IconNotes,
   IconExternalLink,
   IconBuildingStore // Aggiunto per l'icona attività
@@ -26,6 +26,7 @@ type Job = {
   lat?: number;
   lng?: number;
   notes?: string;
+  bubble_message?: string;
   workerPhone?: string;
 };
 
@@ -88,7 +89,7 @@ export default function JobDetailsSheet({
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
           >
             <div className="mx-2 mb-2 rounded-[32px] bg-white shadow-2xl overflow-hidden border border-slate-100">
-              
+
               <div className="relative flex justify-center pt-4">
                 <div className="w-12 h-1.5 rounded-full bg-slate-200" />
                 <button
@@ -100,7 +101,7 @@ export default function JobDetailsSheet({
               </div>
 
               <div className="p-6 pt-2 space-y-6 max-h-[85vh] overflow-y-auto">
-                
+
                 {/* HEADER CON NOME ATTIVITÀ */}
                 <div className="space-y-1">
                   {job.businessName && (
@@ -127,7 +128,7 @@ export default function JobDetailsSheet({
                     </div>
                     <div className="text-lg font-black text-emerald-900">{job.pay}</div>
                   </div>
-                  
+
                   <div className="rounded-2xl bg-slate-50 p-4 border border-slate-100">
                     <div className="flex items-center gap-2 text-slate-500 mb-1">
                       <IconClock size={18} />
@@ -137,7 +138,7 @@ export default function JobDetailsSheet({
                       <span className="text-slate-400 font-medium uppercase tracking-tighter">
                         {toDate(job.startDate).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'short' })}
                       </span>
-                      <br/>
+                      <br />
                       <span className="text-sm">
                         {toDate(job.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         {" → "}
@@ -146,13 +147,28 @@ export default function JobDetailsSheet({
                     </div>
                   </div>
                 </div>
+                {/* DETTAGLI INSERITI DALL'EMPLOYER */}
+                {job.bubble_message?.trim() && (
+                  <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                    <div className="flex items-center gap-2 text-emerald-700">
+                      <IconNotes size={18} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
+                        Dettagli del lavoro
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                      {job.bubble_message}
+                    </p>
+                  </div>
+                )}
 
                 {/* MAP BOX */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-end px-1">
                     <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Posizione</h3>
                   </div>
-                  <div 
+                  <div
                     className="group relative h-40 rounded-3xl overflow-hidden border-2 border-slate-50 shadow-inner cursor-pointer"
                     onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.location)}`, '_blank')}
                   >
@@ -190,7 +206,7 @@ export default function JobDetailsSheet({
                       <div className="flex items-center justify-center gap-2 py-4 rounded-2xl font-bold bg-slate-100 text-slate-500 border border-slate-200">
                         CANDIDATURA INVIATA
                       </div>
-                      
+
                       {/* Bottone WhatsApp appare solo se sei già candidato */}
                       {job.workerPhone && (
                         <a

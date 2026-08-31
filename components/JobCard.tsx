@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { 
   Paper, 
   Text, 
@@ -12,8 +13,7 @@ import {
 import { 
   IconMapPin, 
   IconCalendarEvent, 
-  IconCheck, 
-  IconClock // NUOVO: aggiungi questo import
+  IconCheck 
 } from "@tabler/icons-react";
 
 type Job = {
@@ -23,7 +23,7 @@ type Job = {
   startDate: Date;
   endDate: Date;
   pay: string;
-  business_name?: string; // NUOVO: aggiungiamo il nome dell'attività
+  business_name?: string;
 };
 
 type JobCardProps = Job & {
@@ -32,7 +32,6 @@ type JobCardProps = Job & {
   onApply: (id: string) => void;
 };
 
-// Funzione di utilità per il calcolo delle ore
 const calcolaOre = (inizio: any, fine: any) => {
   const start = new Date(inizio);
   const end = new Date(fine);
@@ -48,12 +47,38 @@ export default function JobCard({
   startDate,
   endDate,
   pay,
-  business_name, // NUOVO: recuperiamo il nome dalle props
+  business_name,
   isLoggedIn,
   appliedJobs,
   onApply,
 }: JobCardProps) {
   const alreadyApplied = appliedJobs.includes(id);
+
+  // STATI PER L'OSCILLAZIONE 3D (ZOMM PORTATO A 1.01)
+  const [rotateX, setRotateX] = useState(0);
+  const [rotateY, setRotateY] = useState(0);
+  const isTilting = rotateX !== 0 || rotateY !== 0;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const centerX = x / rect.width - 0.5;
+    const centerY = y / rect.height - 0.5;
+
+    const maxTilt = 8; // Abbassato leggermente a 15 per evitare distorsioni esagerate dei testi
+
+    setRotateX(-centerY * maxTilt);
+    setRotateY(centerX * maxTilt);
+  };
+
+  const handleMouseLeave = () => {
+    setRotateX(0);
+    setRotateY(0);
+  };
 
   const formatDate = (date: any) => {
     const d = date instanceof Date ? date : new Date(date);
@@ -69,27 +94,41 @@ export default function JobCard({
     <Paper
       withBorder
       radius="24px"
-      p="md"
-      mb="sm"
-      shadow="xs"
+      p="xl" // Portato a xl per dare più respiro interno ed evitare che tocchi i bordi
+      mb="md"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       style={{
-        transition: "all 0.2s ease",
         cursor: "pointer",
         backgroundColor: alreadyApplied ? "#f8fafc" : "white",
         borderColor: alreadyApplied ? "#e2e8f0" : "#f1f5f9",
+        overflow: "hidden", // EVITA LA FUORIUSCITA VISIVA DELLE SCRITTE
+        
+        // ZOOM SCALATO A 1.01 (MENO INVASIVO)
+        transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(${isTilting ? 1.01 : 1}, ${isTilting ? 1.01 : 1}, 1)`,
+        transformStyle: "preserve-3d",
+        WebkitTransformStyle: "preserve-3d",
+        boxShadow: isTilting 
+          ? "0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.08)" 
+          : "0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)",
+        
+        transition: isTilting 
+          ? "transform 0.05s ease-out, box-shadow 0.1s ease" 
+          : "transform 0.4s ease, box-shadow 0.4s ease",
       }}
-      className="hover:shadow-md hover:scale-[1.01] active:scale-[0.99]"
     >
-      <Group justify="space-between" wrap="nowrap" align="flex-start">
-        <Stack gap={4} style={{ flex: 1 }}>
+      {/* CONTENITORE GRUPPO PRINCIPALE */}
+      <Group justify="space-between" wrap="nowrap" align="flex-start" style={{ transformStyle: "preserve-3d" }}>
+        
+        {/* PARALLASSE LEGGERO LATO SINISTRO (PROVENIENTI A UN LIVELLO PIÙ SICURO DI Z) */}
+        <Stack gap={6} style={{ flex: 1, transform: "translateZ(10px)", transformStyle: "preserve-3d" }}>
           
-          {/* NUOVO: Nome attività in piccolo sopra il ruolo */}
           <Text size="xs" fw={800} c="blue.6" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             {business_name || "Privato"}
           </Text>
 
-          <Group gap={8}>
-            <Title order={4} fw={800} style={{ letterSpacing: "-0.5px" }}>
+          <Group gap={8} wrap="wrap">
+            <Title order={4} fw={800} style={{ letterSpacing: "-0.5px", margin: 0 }}>
               {role}
             </Title>
             {alreadyApplied && (
@@ -104,7 +143,7 @@ export default function JobCard({
             <Text size="xs" fw={500}>{location}</Text>
           </Group>
 
-          <Group gap={12} mt={6}>
+          <Group gap={12} mt={4}>
             <Group gap={4}>
               <IconCalendarEvent size={14} color="#10b981" />
               <Text size="xs" fw={700} c="slate.7">
@@ -113,14 +152,13 @@ export default function JobCard({
             </Group>
             <Text size="xs" c="dimmed" fw={500}>—</Text>
             <Text size="xs" fw={700} c="slate.7">
-                {/* Visualizza solo l'orario di fine */}
                 {new Date(endDate).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+              </Text>
           </Group>
         </Stack>
 
-        <Stack align="flex-end" gap={8}>
-          {/* NUOVO: Badge ore totali */}
+        {/* PARALLASSE LATO DESTRO */}
+        <Stack align="flex-end" gap={8} style={{ transform: "translateZ(15px)", flexShrink: 0 }}>
           <Badge variant="dot" color="gray" size="sm">
             {calcolaOre(startDate, endDate)} ore
           </Badge>
@@ -140,11 +178,12 @@ export default function JobCard({
         </Stack>
       </Group>
 
+      {/* PULSANTE INTEGRATO NEL FLUSSO DELLA CARD IN BASSO */}
       {!alreadyApplied && (
         <Button
           fullWidth
           radius="xl"
-          mt="md"
+          mt="lg"
           size="sm"
           variant="light"
           color="green"
@@ -158,7 +197,12 @@ export default function JobCard({
               alert(err?.message ?? "Errore candidatura");
             }
           }}
-          style={{ height: 40, fontWeight: 700 }}
+          style={{ 
+            height: 42, 
+            fontWeight: 700,
+            transform: "translateZ(8px)",
+          }}
+          className="active:scale-[0.98] transition-transform"
         >
           Candidati Ora
         </Button>
@@ -167,6 +211,6 @@ export default function JobCard({
   );
 }
 
-function Title({ children, style }: any) {
+function Title({ children, style, order }: any) {
     return <h3 style={{ margin: 0, ...style }}>{children}</h3>;
 }

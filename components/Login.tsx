@@ -24,7 +24,7 @@ import { motion } from "framer-motion";
 
 import { supabase } from "@/app/lib/supabaseClient";
 
-type UserRole = "worker" | "employer";
+type UserRole = "worker" | "employer" | "trainer";
 
 type Props = {
   onLogin: (role: UserRole) => void;
@@ -63,7 +63,7 @@ export default function Login({
     setAcceptedTerms(false);
   }, [mode, role]);
 
-  const primaryColor: "green" | "blue" = role === "worker" ? "green" : "blue";
+const primaryColor =role === "worker" ? "green" : role === "employer" ? "blue" : "violet";
 
   const form = useForm({
     initialValues: {
@@ -120,6 +120,30 @@ export default function Login({
     if (error) return null;
     return (data?.role as UserRole) ?? null;
   }
+
+  async function redirectByProfile(userId: string) {
+  const savedRole = await getMyRole(userId);
+
+  if (!savedRole) {
+    throw new Error(
+      "Profilo utente non trovato. Controlla che profiles.role sia valorizzato."
+    );
+  }
+
+  onLogin(savedRole);
+
+  if (savedRole === "employer") {
+    router.replace("/employer");
+    return;
+  }
+
+  if (savedRole === "trainer") {
+    router.replace("/trainer/dashboard");
+    return;
+  }
+
+  router.replace("/");
+}
 
   async function markAccepted(userId: string) {
     const now = new Date().toISOString();
@@ -189,8 +213,7 @@ export default function Login({
 
       if (!alive) return;
 
-      onLogin(r);
-      router.replace(r === "employer" ? "/employer" : "/");
+await redirectByProfile(userId);
     })().catch((e) => console.error("OAuth session bootstrap error:", e));
 
     return () => {
@@ -269,22 +292,22 @@ export default function Login({
         return;
       }
 
-      if (mode === "login") {
-        await doLogin(email, password);
+if (mode === "login") {
+  await doLogin(email, password);
 
-        const { data } = await supabase.auth.getSession();
-        const userId = data.session?.user.id;
-        if (!userId) throw new Error("Sessione non trovata dopo login");
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-        // segna accettazione
-        // await markAccepted(userId);
+  const userId = session?.user.id;
 
-        const r = (await getMyRole(userId)) ?? role;
+  if (!userId) {
+    throw new Error("Sessione non trovata dopo il login.");
+  }
 
-        onLogin(r);
-        router.replace(r === "employer" ? "/employer" : "/");
-        return;
-      }
+  await redirectByProfile(userId);
+  return;
+}
 
       // register
       const name = (values.name ?? "").trim();
@@ -314,8 +337,8 @@ export default function Login({
       // se session c'è, segna accettazione
       await markAccepted(data.session.user.id);
 
-      onLogin(role);
-      router.replace(role === "employer" ? "/employer" : "/");
+await redirectByProfile(data.session.user.id);
+
     } catch (e: any) {
       alert(e?.message ?? "Errore");
     } finally {
@@ -365,6 +388,7 @@ export default function Login({
                 data={[
                   { label: "👷 Lavoratore", value: "worker" },
                   { label: "🏢 Datore", value: "employer" },
+                  { label: "🏋️ Trainer", value: "trainer" },
                 ]}
               />
             </Box>
@@ -502,4 +526,5 @@ export default function Login({
       </form>
     </Paper>
   );
+
 }

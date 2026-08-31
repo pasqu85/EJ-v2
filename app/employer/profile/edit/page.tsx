@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { IconUpload } from "@tabler/icons-react";
 import {
   Box,
   Container,
@@ -31,6 +32,7 @@ type Business = {
   type: string | null;
   address: string;
   is_default: boolean;
+  logo_url?: string | null;
 };
 
 type ProfileRow = {
@@ -58,6 +60,15 @@ export default function EmployerEditProfilePage() {
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState("");
   const [address, setAddress] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+
+const [editName, setEditName] = useState("");
+const [editType, setEditType] = useState("");
+const [editAddress, setEditAddress] = useState("");
+const [editLogoFile, setEditLogoFile] = useState<File | null>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -97,7 +108,7 @@ export default function EmployerEditProfilePage() {
         // carica businesses
         const { data: biz, error: bErr } = await supabase
           .from("businesses")
-          .select("id, name, type, address, is_default")
+          .select("id, name, type, address, is_default, logo_url")
           .eq("owner_id", user.id)
           .order("created_at", { ascending: false });
 
@@ -137,7 +148,7 @@ export default function EmployerEditProfilePage() {
 
     const { data, error } = await supabase
       .from("businesses")
-      .select("id, name, type, address, is_default")
+      .select("id, name, type, address, is_default, logo_url")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -152,14 +163,41 @@ export default function EmployerEditProfilePage() {
         return;
       }
 
+      setUploadingLogo(true);
+
       const {
         data: { user },
         error: uErr,
       } = await supabase.auth.getUser();
+
       if (uErr) throw uErr;
       if (!user) throw new Error("Non sei loggato");
 
-      // Se è la prima attività, la rendiamo default.
+      let logoUrl: string | null = null;
+
+      // --------------------------------
+      // UPLOAD LOGO
+      // --------------------------------
+      if (logoFile) {
+        const fileExt = logoFile.name.split(".").pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("business-logos")
+          .upload(fileName, logoFile);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data } = supabase.storage
+          .from("business-logos")
+          .getPublicUrl(fileName);
+
+        logoUrl = data.publicUrl;
+      }
+
+      // prima attività = default
       const makeDefault = businesses.length === 0;
 
       const { error: insErr } = await supabase.from("businesses").insert({
@@ -168,21 +206,87 @@ export default function EmployerEditProfilePage() {
         type: businessType.trim() || null,
         address: address.trim(),
         is_default: makeDefault,
+        logo_url: logoUrl,
       });
 
       if (insErr) throw insErr;
 
-      // reset form
       setBusinessName("");
       setBusinessType("");
       setAddress("");
+      setLogoFile(null);
 
       await refreshBusinesses();
+
       alert("Attività salvata ✅");
+
     } catch (e: any) {
       alert(e?.message ?? "Errore salvataggio attività");
+    } finally {
+      setUploadingLogo(false);
     }
   };
+
+  const openEditBusiness = (business: Business) => {
+  setEditingBusiness(business);
+
+  setEditName(business.name);
+  setEditType(business.type || "");
+  setEditAddress(business.address);
+};
+
+const saveBusinessChanges = async () => {
+  try {
+    if (!editingBusiness) return;
+
+    let logoUrl = editingBusiness.logo_url || null;
+
+    // upload nuovo logo
+    if (editLogoFile) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error("Non sei loggato");
+
+      const fileExt = editLogoFile.name.split(".").pop();
+
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("business-logos")
+        .upload(fileName, editLogoFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("business-logos")
+        .getPublicUrl(fileName);
+
+      logoUrl = data.publicUrl;
+    }
+
+    const { error } = await supabase
+      .from("businesses")
+      .update({
+        name: editName,
+        type: editType || null,
+        address: editAddress,
+        logo_url: logoUrl,
+      })
+      .eq("id", editingBusiness.id);
+
+    if (error) throw error;
+
+    setEditingBusiness(null);
+
+    await refreshBusinesses();
+
+    alert("Attività aggiornata ✅");
+  } catch (e: any) {
+    alert(e.message);
+  }
+};
 
   const removeBusiness = async (id: string) => {
     try {
@@ -328,6 +432,70 @@ export default function EmployerEditProfilePage() {
             <Box w={34} />
           </Group>
         </Container>
+        {editingBusiness && (
+  <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-3xl w-full max-w-md p-6">
+      <div className="text-xl font-bold mb-5">
+        Modifica attività
+      </div>
+
+      <Stack gap="md">
+        <TextInput
+          label="Nome attività"
+          value={editName}
+          onChange={(e) => setEditName(e.currentTarget.value)}
+        />
+
+        <TextInput
+          label="Tipologia"
+          value={editType}
+          onChange={(e) => setEditType(e.currentTarget.value)}
+        />
+
+        <TextInput
+          label="Indirizzo"
+          value={editAddress}
+          onChange={(e) => setEditAddress(e.currentTarget.value)}
+        />
+
+        <div>
+          <div className="text-sm font-medium mb-2">
+            Nuovo logo
+          </div>
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setEditLogoFile(file);
+              }
+            }}
+          />
+        </div>
+
+        <Group grow mt="md">
+          <Button
+            variant="light"
+            color="gray"
+            radius="xl"
+            onClick={() => setEditingBusiness(null)}
+          >
+            Annulla
+          </Button>
+
+          <Button
+            radius="xl"
+            onClick={saveBusinessChanges}
+          >
+            Salva
+          </Button>
+        </Group>
+      </Stack>
+    </div>
+  </div>
+)}
       </Box>
 
       <Container size="sm" py="xl">
@@ -335,8 +503,13 @@ export default function EmployerEditProfilePage() {
           {/* ATTIVITÀ */}
           <Paper p="xl" radius="lg" withBorder shadow="sm">
             <Group mb="lg">
-              <IconBuildingCommunity color="#3b82f6" stroke={1.5} />
-              <Title order={5} fw={700}>Dati dell&apos;Impresa</Title>
+              <div className="h-14 w-14 rounded-2xl overflow-hidden bg-blue-50 flex items-center justify-center shrink-0">
+                <IconBuildingCommunity size={26} color="#2563eb" />
+              </div>
+
+              <Title order={5} fw={700}>
+                Dati dell&apos;Impresa
+              </Title>
             </Group>
 
             {/* LISTA ATTIVITÀ */}
@@ -353,13 +526,41 @@ export default function EmployerEditProfilePage() {
                       key={b.id}
                       className="bg-white rounded-xl border border-slate-200 p-3 flex items-start justify-between gap-3"
                     >
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate">{b.name}</div>
-                        <div className="text-sm text-slate-500 truncate">{b.type ?? "Attività"}</div>
-                        <div className="text-sm text-slate-600 truncate mt-1">{b.address}</div>
+                      <div className="flex items-start gap-3 min-w-0">
+                        {b.logo_url ? (
+                          <img
+                            src={b.logo_url}
+                            alt={b.name}
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
+                            🏢
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{b.name}</div>
+                          <div className="text-sm text-slate-500 truncate">
+                            {b.type ?? "Attività"}
+                          </div>
+                          <div className="text-sm text-slate-600 truncate mt-1">
+                            {b.address}
+                          </div>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
+
+                        <ActionIcon
+                          variant="subtle"
+                          color="blue"
+                          radius="xl"
+                          onClick={() => openEditBusiness(b)}
+                          aria-label="Modifica"
+                        >
+                          ✏️
+                        </ActionIcon>
                         <ActionIcon
                           variant={isDef ? "filled" : "subtle"}
                           color={isDef ? "yellow" : "gray"}
@@ -411,12 +612,34 @@ export default function EmployerEditProfilePage() {
                 onChange={(e) => setAddress(e.currentTarget.value)}
                 radius="md"
               />
+              <div>
+                <div className="text-sm font-medium mb-2">
+                  Logo azienda
+                </div>
 
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setLogoFile(file);
+                    }
+                  }}
+                />
+
+                {logoFile && (
+                  <div className="text-xs text-slate-500 mt-2">
+                    {logoFile.name}
+                  </div>
+                )}
+              </div>
               <Button
                 leftSection={<IconPlus size={18} />}
                 radius="xl"
                 variant="light"
                 onClick={addNewBusiness}
+                loading={uploadingLogo}
               >
                 Aggiungi attività
               </Button>

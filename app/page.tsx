@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { IconBriefcase, IconBuildingStore, IconChevronRight, IconClock } from "@tabler/icons-react";
+import { IconBriefcase, IconBuildingStore, IconChevronRight, IconClock, IconSchool } from "@tabler/icons-react";
 import WorkerPanel from "@/components/WorkerPanel";
 import Login from "../components/Login";
 import JobCard from "../components/JobCard";
@@ -26,7 +26,7 @@ import FloatingBubble from "@/components/FloatingBubble";
 // -------------------------
 // TYPES
 // -------------------------
-type UserRole = "worker" | "employer" | null;
+type UserRole = "worker" | "employer" | "trainer" | null;
 type Tab = "home" | "applications" | "profile";
 
 export type Job = {
@@ -178,7 +178,7 @@ export default function Home() {
     return computeNumberOfDays(window.innerWidth);
   });
 
-  type EntryChoice = "worker" | "employer" | null;
+  type EntryChoice = "worker" | "employer" | "trainer" | null;
 
   const [entryChoice, setEntryChoice] = useState<EntryChoice>(null);
 
@@ -191,47 +191,158 @@ export default function Home() {
       setAppliedJobs([]);
     }
   };
+
+
+  // useEffect(() => {
+  //   let mounted = true;
+
+  //   const handleAuth = async (session: any) => {
+  //     if (!mounted) return;
+  //     const user = session?.user ?? null;
+
+  //     if (user) {
+  //       setIsLoggedIn(true);
+  //       setAuthUserId(user.id);
+
+  //       // Carichiamo tutto in parallelo per velocità
+  //       const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  //       setUserRole((profile?.role as UserRole) ?? null);
+
+  //       await Promise.all([
+  //         loadJobsFromDb(),
+  //         syncAppliedJobs()
+  //       ]);
+  //     } else {
+  //       // RESET TOTALE AL LOGOUT
+  //       setIsLoggedIn(false);
+  //       setUserRole(null);
+  //       setAuthUserId(null);
+  //       setAppliedJobs([]);
+  //       setActiveTab("home");
+  //     }
+  //     setIsCheckingAuth(false); // Sblocca la UI
+  //   };
+
+  //   // Controllo iniziale
+  //   supabase.auth.getSession().then(({ data: { session } }) => handleAuth(session));
+
+  //   // Ascolta cambi in tempo reale
+  //   const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => handleAuth(session));
+
+  //   return () => {
+  //     mounted = false;
+  //     sub.subscription.unsubscribe();
+  //   };
+  // }, []);
   useEffect(() => {
     let mounted = true;
+    let requestId = 0;
 
-    const handleAuth = async (session: any) => {
-      if (!mounted) return;
-      const user = session?.user ?? null;
-
-      if (user) {
-        setIsLoggedIn(true);
-        setAuthUserId(user.id);
-
-        // Carichiamo tutto in parallelo per velocità
-        const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-        setUserRole((profile?.role as UserRole) ?? null);
-
-        await Promise.all([
-          loadJobsFromDb(),
-          syncAppliedJobs()
-        ]);
-      } else {
-        // RESET TOTALE AL LOGOUT
-        setIsLoggedIn(false);
-        setUserRole(null);
-        setAuthUserId(null);
-        setAppliedJobs([]);
-        setActiveTab("home");
-      }
-      setIsCheckingAuth(false); // Sblocca la UI
+    const resetLoggedOutState = () => {
+      setIsLoggedIn(false);
+      setUserRole(null);
+      setAuthUserId(null);
+      setHasSession(false);
+      setSessionChecked(true);
+      setAppliedJobs([]);
+      setJobs([]);
+      setSelectedJob(null);
+      setActiveTab("home");
+      setIsCheckingAuth(false);
     };
 
-    // Controllo iniziale
-    supabase.auth.getSession().then(({ data: { session } }) => handleAuth(session));
+    const getRole = async (
+      userId: string
+    ): Promise<Exclude<UserRole, null> | null> => {
+      // Dopo una registrazione il record profiles può arrivare pochi istanti dopo.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
 
-    // Ascolta cambi in tempo reale
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => handleAuth(session));
+        const role = data?.role;
+
+        if (role === "worker" || role === "employer" || role === "trainer") {
+          return role;
+        }
+
+        if (error) {
+          console.error("Errore nel caricamento del ruolo:", error);
+        }
+
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+      }
+
+      return null;
+    };
+
+    const handleSession = async (session: any) => {
+      const currentRequest = ++requestId;
+
+      if (!session?.user) {
+        if (mounted && currentRequest === requestId) {
+          resetLoggedOutState();
+        }
+        return;
+      }
+
+      const user = session.user;
+
+      if (!mounted || currentRequest !== requestId) return;
+
+      setIsCheckingAuth(true);
+      setSessionChecked(true);
+      setHasSession(true);
+      setIsLoggedIn(true);
+      setAuthUserId(user.id);
+      setUserRole(null);
+
+      const role = await getRole(user.id);
+
+      if (!mounted || currentRequest !== requestId) return;
+
+      setUserRole(role);
+
+      // Il redirect avviene solo dopo aver letto davvero profiles.role.
+      if (role === "employer") {
+        router.replace("/employer");
+        return;
+      }
+
+      if (role === "trainer") {
+        router.replace("/trainer/dashboard");
+        return;
+      }
+
+      await Promise.all([
+        loadJobsFromDb(),
+        syncAppliedJobs(),
+      ]);
+
+      if (mounted && currentRequest === requestId) {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    void supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => handleSession(session));
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      void handleSession(session);
+    });
 
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const onJobs = () => loadJobsFromDb();
@@ -260,23 +371,23 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
+  // useEffect(() => {
+  //   let mounted = true;
 
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!mounted) return;
+  //   (async () => {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (!mounted) return;
 
-      if (user) {
-        // se sei worker, sincronizza candidature
-        await syncAppliedJobs();
-      } else {
-        setAppliedJobs([]);
-      }
-    })();
+  //     if (user) {
+  //       // se sei worker, sincronizza candidature
+  //       await syncAppliedJobs();
+  //     } else {
+  //       setAppliedJobs([]);
+  //     }
+  //   })();
 
-    return () => { mounted = false; };
-  }, []);
+  //   return () => { mounted = false; };
+  // }, []);
 
   //bottom bar
   useEffect(() => {
@@ -344,8 +455,8 @@ export default function Home() {
       endDate: new Date(j.end_date),     // Fondamentale per le ore
       business_name: j.business_name,
       is_bubble: j.is_bubble,
-    bubble_message: j.bubble_message,
-    employment_type: j.employment_type
+      bubble_message: j.bubble_message,
+      employment_type: j.employment_type
     }));
 
     setJobs(mapped);
@@ -384,97 +495,97 @@ export default function Home() {
   // -------------------------
   // INIT AUTH (NO LOCALSTORAGE)
   // -------------------------
-  useEffect(() => {
-    let mounted = true;
+  // useEffect(() => {
+  //   let mounted = true;
 
-    (async () => {
-      const { data } = await supabase.auth.getSession();
+  //   (async () => {
+  //     const { data } = await supabase.auth.getSession();
 
-      if (!mounted) return;
+  //     if (!mounted) return;
 
-      setHasSession(!!data.session);
-      setSessionChecked(true);
-    })();
+  //     setHasSession(!!data.session);
+  //     setSessionChecked(true);
+  //   })();
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  //   return () => {
+  //     mounted = false;
+  //   };
+  // }, []);
 
-  useEffect(() => {
-    let mounted = true;
+  // useEffect(() => {
+  //   let mounted = true;
 
-    async function init() {
-      const { data } = await supabase.auth.getSession();
-      const sessionUser = data.session?.user ?? null;
+  //   async function init() {
+  //     const { data } = await supabase.auth.getSession();
+  //     const sessionUser = data.session?.user ?? null;
 
-      if (!mounted) return;
+  //     if (!mounted) return;
 
-      if (!sessionUser) {
-        setIsLoggedIn(false);
-        setAuthUserId(null);
-        setUserRole(null);
-        setAppliedJobs([]);
-        setJobs([]);
-        return;
-      }
+  //     if (!sessionUser) {
+  //       setIsLoggedIn(false);
+  //       setAuthUserId(null);
+  //       setUserRole(null);
+  //       setAppliedJobs([]);
+  //       setJobs([]);
+  //       return;
+  //     }
 
-      setIsLoggedIn(true);
-      setAuthUserId(sessionUser.id);
+  //     setIsLoggedIn(true);
+  //     setAuthUserId(sessionUser.id);
 
-      await loadRoleFromDb(sessionUser.id);
-      await loadJobsFromDb();
-      await loadAppliedFromDb(sessionUser.id);
-    }
+  //     await loadRoleFromDb(sessionUser.id);
+  //     await loadJobsFromDb();
+  //     await loadAppliedFromDb(sessionUser.id);
+  //   }
 
-    init();
+  //   init();
 
-    // ascolta login/logout
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const u = session?.user ?? null;
+  //   // ascolta login/logout
+  //   const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  //     const u = session?.user ?? null;
 
-      // ✅ Se torno da Google, applico il ruolo scelto prima del redirect
-      if (session?.user) {
-        const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
-          | "worker"
-          | "employer"
-          | null;
+  //     // ✅ Se torno da Google, applico il ruolo scelto prima del redirect
+  //     if (session?.user) {
+  //       const pendingRole = localStorage.getItem("EXTRAJOB_PENDING_ROLE") as
+  //         | "worker"
+  //         | "employer"
+  //         | null;
 
-        if (pendingRole) {
-          await supabase
-            .from("profiles")
-            .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
+  //       if (pendingRole) {
+  //         await supabase
+  //           .from("profiles")
+  //           .upsert({ id: session.user.id, role: pendingRole }, { onConflict: "id" });
 
-          localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
-        }
-      }
+  //         localStorage.removeItem("EXTRAJOB_PENDING_ROLE");
+  //       }
+  //     }
 
-      if (!mounted) return;
+  //     if (!mounted) return;
 
-      if (!u) {
-        setIsLoggedIn(false);
-        setAuthUserId(null);
-        setUserRole(null);
-        setAppliedJobs([]);
-        setJobs([]);
-        setSelectedJob(null);
-        setActiveTab("home");
-        return;
-      }
+  //     if (!u) {
+  //       setIsLoggedIn(false);
+  //       setAuthUserId(null);
+  //       setUserRole(null);
+  //       setAppliedJobs([]);
+  //       setJobs([]);
+  //       setSelectedJob(null);
+  //       setActiveTab("home");
+  //       return;
+  //     }
 
-      setIsLoggedIn(true);
-      setAuthUserId(u.id);
+  //     setIsLoggedIn(true);
+  //     setAuthUserId(u.id);
 
-      await loadRoleFromDb(u.id);
-      await loadJobsFromDb();
-      await loadAppliedFromDb(u.id);
-    });
+  //     await loadRoleFromDb(u.id);
+  //     await loadJobsFromDb();
+  //     await loadAppliedFromDb(u.id);
+  //   });
 
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+  //   return () => {
+  //     mounted = false;
+  //     sub.subscription.unsubscribe();
+  //   };
+  // }, []);
 
   // responsive calendar
   useEffect(() => {
@@ -707,7 +818,7 @@ export default function Home() {
                 {/* BOTTONE EMPLOYER */}
                 <button
                   onClick={() => setEntryChoice("employer")}
-                  className="group relative overflow-hidden w-full flex items-center gap-5 p-10 backdrop-blur-md !rounded-[32px] border-blue shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-blue-600 hover:border-blue-500/30 transition-all duration-300 active:scale-95"
+                  className="mb-4 group relative overflow-hidden w-full flex items-center gap-5 p-10 backdrop-blur-md !rounded-[32px] border-blue shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-blue-600 hover:border-blue-500/30 transition-all duration-300 active:scale-95"
                 >
                   <div className="w-14 h-14 !rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-200 group-hover:rotate-6 transition-transform">
                     <IconBuildingStore size={30} stroke={2.5} />
@@ -717,9 +828,29 @@ export default function Home() {
                     <div className="text-sm font-bold text-slate-400">Pubblica e trova staff</div>
                   </div>
                   <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">→</div>
+                    <div className="w-8 h-8 !rounded-full bg-slate-100 flex items-center justify-center text-slate-400">→</div>
                   </div>
                 </button>
+
+                {/* bottone trainer */}
+                {/* <button
+                  onClick={() => setEntryChoice("trainer")}
+                  className="group relative overflow-hidden w-full flex items-center gap-5 p-10 backdrop-blur-md !rounded-[32px] border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-violet-600 hover:border-violet-500/30 transition-all duration-300 active:scale-95"
+                >
+                  <div className="w-14 h-14 !rounded-2xl bg-violet-600 text-white flex items-center justify-center">
+                    🏋️
+                  </div>
+
+                  <div className="text-left">
+                    <div className="font-black text-slate-800 text-xl">
+                      Sono un Trainer
+                    </div>
+
+                    <div className="text-sm font-bold text-slate-400">
+                      Offri corsi e coaching
+                    </div>
+                  </div>
+                </button> */}
               </div>
             </motion.div>
           </div>
@@ -778,6 +909,11 @@ export default function Home() {
         />
       );
     }
+    if (userRole === "trainer") {
+      router.replace("/trainer/dashboard");
+      return null;
+    }
+
 
     // --- 4. EMPLOYER ---
     if (userRole === "employer") {
@@ -804,19 +940,23 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-100">
       {isLoggedIn && (
-<FloatingBubble 
-  bubbleJobs={jobs
-    .filter(j => j.is_bubble)
-    .map(j => ({
-      id: j.id,
-      role: j.role,
-      message: j.bubble_message || "", // Mappa bubble_message su message
-      type: j.employment_type || "extra" // Mappa employment_type su type
-    }))
-  } 
-  onApply={(id) => handleApply(id)} 
-/>
-    )}
+        <FloatingBubble
+          bubbleJobs={jobs
+            .filter(j => j.is_bubble)
+            .map(j => ({
+              id: j.id,
+              role: j.role,
+              message: j.bubble_message || "",
+              type: j.employment_type || "extra"
+            }))
+          }
+          onOpenJob={(id) => {
+            const job = jobs.find((item) => item.id === id);
+            if (job) setSelectedJob(job);
+          }}
+          onApply={(id) => handleApply(id)}
+        />
+      )}
       {isLoggedIn && (
         <header className="bg-white py-2 px-5 shadow-md sticky top-0 z-10 flex items-center justify-between">
           {/* Contenitore Logo + Testo */}

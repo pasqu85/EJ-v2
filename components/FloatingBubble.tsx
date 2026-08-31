@@ -9,11 +9,11 @@ type BubbleJob = {
   type: "indeterminato" | "extra";
 };
 
-export default function FloatingBubble({ bubbleJobs, onApply }: { bubbleJobs: BubbleJob[], onApply: (id: string) => void }) {
+export default function FloatingBubble({ bubbleJobs, onApply, onOpenJob, }: { bubbleJobs: BubbleJob[], onApply: (id: string) => void; onOpenJob: (id: string) => void; }) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
-  
+
   const constraintsRef = useRef(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -29,12 +29,12 @@ export default function FloatingBubble({ bubbleJobs, onApply }: { bubbleJobs: Bu
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
-    let finalLeft = 70; 
-    let finalTop = 0;   
+    let finalLeft = 70;
+    let finalTop = 0;
 
     if (rect.right + popupWidth + padding > screenWidth) finalLeft = -(popupWidth + 10);
     if (rect.left + finalLeft < padding) finalLeft = padding - rect.left;
-    if (rect.top + popupHeight + padding > screenHeight) finalTop = -(popupHeight - 40); 
+    if (rect.top + popupHeight + padding > screenHeight) finalTop = -(popupHeight - 40);
     if (rect.top + finalTop < padding) finalTop = padding - rect.top;
 
     setCoords({ left: finalLeft, top: finalTop });
@@ -54,7 +54,7 @@ export default function FloatingBubble({ bubbleJobs, onApply }: { bubbleJobs: Bu
         dragElastic={0.1}
         dragMomentum={false}
         onDragStart={() => { isDragging.current = true; }}
-        onDragEnd={() => { 
+        onDragEnd={() => {
           setTimeout(() => { isDragging.current = false; }, 100);
           if (isOpen) calculatePosition();
         }}
@@ -110,16 +110,26 @@ export default function FloatingBubble({ bubbleJobs, onApply }: { bubbleJobs: Bu
                     {bubbleJobs[currentIndex].type}
                   </span>
                 </div>
-                
-                <h3 className="font-black text-slate-900 text-lg leading-tight tracking-tight">
-                  {bubbleJobs[currentIndex].role}
-                </h3>
-                
-                <p className="text-slate-700/80 text-sm italic leading-relaxed font-medium">
-                  "{bubbleJobs[currentIndex].message}"
-                </p>
 
-                <button 
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onOpenJob(bubbleJobs[currentIndex].id);
+                  }}
+                  className="w-full text-left"
+                >
+                  <h3 className="font-black text-slate-900 text-lg leading-tight tracking-tight">
+                    {bubbleJobs[currentIndex].role}
+                  </h3>
+
+                  <p className="mt-2 text-slate-700/80 text-sm italic leading-relaxed font-medium">
+                    "{bubbleJobs[currentIndex].message}"
+                  </p>
+
+                </button>
+
+                <button
                   onClick={(e) => { e.stopPropagation(); onApply(bubbleJobs[currentIndex].id); }}
                   className="w-full py-3.5 bg-emerald-600 text-white !rounded-[20px] font-black text-xs shadow-lg shadow-emerald-600/20 active:scale-95 transition-all uppercase tracking-widest"
                 >
