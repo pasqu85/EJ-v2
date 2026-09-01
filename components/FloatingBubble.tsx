@@ -124,7 +124,7 @@ export default function FloatingBubble({ bubbleJobs, onApply, onOpenJob, }: { bu
                   </h3>
 
                   <p className="mt-2 text-slate-700/80 text-sm italic leading-relaxed font-medium">
-                    "{bubbleJobs[currentIndex].message}"
+                    {bubbleJobs[currentIndex].message}
                   </p>
 
                 </button>

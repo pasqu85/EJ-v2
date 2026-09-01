@@ -9,45 +9,41 @@ import {
   IconChecklist,
   IconSearch,
   IconUserCircle,
-  IconChevronLeft,
 } from "@tabler/icons-react";
 
-const ONEUI_SPRING = { type: "spring", stiffness: 900, damping: 70, mass: 0.7 } as const;
-
-const LIQUID_GLASS = {
+// Stile Liquid Glass iOS / Netflix Fluid
+const LIQUID_GLASS_NETFLIX = {
   background:
-    "linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.32) 52%, rgba(220,252,231,0.28) 100%)",
-  border: "1px solid rgba(255,255,255,0.7)",
+    "linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.15) 100%)",
+  border: "1px solid rgba(255, 255, 255, 0.65)",
   boxShadow:
-    "0 18px 40px rgba(15,23,42,0.16), inset 0 1px 1px rgba(255,255,255,0.85), inset 0 -1px 1px rgba(15,23,42,0.06)",
-  backdropFilter: "blur(24px) saturate(180%)",
-  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+    "0 24px 48px -12px rgba(15, 23, 42, 0.18), inset 0 1.5px 1.5px rgba(255, 255, 255, 0.95), inset 0 -1.5px 1.5px rgba(0, 0, 0, 0.05)",
+  backdropFilter: "blur(32px) saturate(210%)",
+  WebkitBackdropFilter: "blur(32px) saturate(210%)",
 } as const;
 
 export type Tab = "home" | "applications" | "search" | "profile";
 
 const allTabs: {
   id: Tab;
+  label: string;
   Icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>;
 }[] = [
-  { id: "home", Icon: IconHome },
-  { id: "applications", Icon: IconChecklist },
-  { id: "search", Icon: IconSearch },
-  { id: "profile", Icon: IconUserCircle },
+  { id: "home", label: "Home", Icon: IconHome },
+  { id: "applications", label: "Candidature", Icon: IconChecklist },
+  { id: "search", label: "Cerca", Icon: IconSearch },
+  { id: "profile", label: "Profilo", Icon: IconUserCircle },
 ];
 
 export default function BottomBar({
   activeTab,
   onChange,
   onSearch,
-  onBackHome,
 }: {
   activeTab: Tab;
   onChange: (tab: Exclude<Tab, "search">) => void;
   onSearch: () => void;
-  onBackHome: () => void;
 }) {
-  const isHome = activeTab === "home";
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,111 +58,83 @@ export default function BottomBar({
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60]">
-      <div className="relative flex items-center gap-3">
-        
-        {/* PILLOLA PRINCIPALE CON BORDO ANIMATO */}
-        <motion.div
-          layout
-          transition={ONEUI_SPRING}
-className="relative !rounded-full overflow-hidden"
-style={LIQUID_GLASS}
-        >
-          {/* ✨ IL FASCIO LUMINOSO (Corre sul bordo) ✨ */}
-          {/* <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[300%]"
-            style={{
-              background: "conic-gradient(from 0deg, transparent 0deg, #1aa934ff 20deg, #abe3a0ff 40deg, #45e442ff 60deg, transparent 90deg)",
-              filter: "blur(4px)",
-            }}
-          /> */}
-<div
-  aria-hidden
-  className="pointer-events-none absolute inset-x-5 top-0 h-1/2 rounded-full bg-linear-to-b from-white/55 to-transparent"
-/>
-          {/* CONTENUTO INTERNO (Copre il centro, lasciando vedere solo il bordo) */}
-          <motion.div
-            layout
-            transition={ONEUI_SPRING}
-            className={clsx(
-              "flex items-center !rounded-full relative z-10",
-              "bg-transparent", // Sfondo della barra
-              isHome ? "px-6 py-3 gap-6" : "px-3 py-2 gap-3"
-            )}
-          >
-            <AnimatePresence initial={false} mode="popLayout">
-              {allTabs.map(({ id, Icon }) => {
-                if (!isHome && id === "home") return null;
+      {/* PILLOLA UNICA LIQUID GLASS CON TUTTI I BOTTONI */}
+      <motion.div
+        layout
+        style={LIQUID_GLASS_NETFLIX}
+        className="relative overflow-hidden !rounded-full p-2"
+      >
+        {/* Riflesso di luce superiore "Liquid Specular" */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-4 top-0 h-[45%] rounded-full bg-gradient-to-b from-white/70 to-transparent"
+        />
 
-                const active = activeTab === id;
-                const btnSize = isHome ? "w-12 h-12" : "w-10 h-10";
+        <div className="relative z-10 flex items-center gap-2">
+          {allTabs.map(({ id, label, Icon }) => {
+            const active = activeTab === id;
 
-                return (
-                  <motion.button
-                    key={id}
-                    layout="position"
-                    onClick={() => {
-                      if (id === "search") onSearch();
-                      else onChange(id as Exclude<Tab, "search">);
-                    }}
+            return (
+              <motion.button
+                key={id}
+                onClick={() => {
+                  if (id === "search") onSearch();
+                  else onChange(id as Exclude<Tab, "search">);
+                }}
+                whileTap={{ scale: 0.92 }}
+                transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                className={clsx(
+                  "relative flex h-12 items-center justify-center gap-2 px-4 !rounded-full transition-colors duration-300 select-none",
+                  active ? "text-emerald-950 font-black" : "text-slate-600 hover:text-slate-900"
+                )}
+                aria-label={label}
+              >
+                {/* PILOLA ATTIVA LIQUID GLASS */}
+                {active && (
+                  <motion.div
+                    layoutId="liquidActivePillWorkerFixed"
+                    className="absolute inset-0 !rounded-full bg-gradient-to-b from-white to-emerald-50/80 shadow-[0_8px_20px_rgba(16,185,129,0.15),_inset_0_1px_1px_rgba(255,255,255,1)] border border-white/90"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+
+                {/* AVATAR O ICONA */}
+                {id === "profile" && avatarUrl ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt="Profilo" 
                     className={clsx(
-                      btnSize,
-                      "!rounded-full flex items-center justify-center transition relative overflow-hidden",
-                      active && id !== "profile" 
-                        ? "bg-emerald-500 text-white bg-linear-to-r from-emerald-700 to-emerald-400" 
-                        : "text-gray-500 hover:bg-white/40 "
-                    )}
-                  >
-                    {id === "profile" && avatarUrl ? (
-                      <img 
-                        src={avatarUrl} 
-                        alt="P" 
-                        className={clsx(
-                          "w-full h-full object-cover rounded-full",
-                          active ? "border-2 border-emerald-500" : "opacity-80"
-                        )} 
-                      />
-                    ) : (
-                      <Icon size={isHome ? 24 : 22} stroke={active ? 2.5 : 2.2} />
-                    )}
-                  </motion.button>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
-        </motion.div>
+                      "relative z-10 w-6 h-6 object-cover rounded-full",
+                      active ? "ring-2 ring-emerald-500" : "opacity-80"
+                    )} 
+                  />
+                ) : (
+                  <Icon
+                    size={22}
+                    stroke={active ? 2.8 : 2}
+                    className="relative z-10"
+                  />
+                )}
 
-        {/* BACK BUBBLE CON BORDO ANIMATO MINI */}
-        <AnimatePresence initial={false}>
-          {!isHome && (
-            // <motion.div
-            //   key="back-bubble-container"
-            //   initial={{ opacity: 0, scale: 0.8 }}
-            //   animate={{ opacity: 1, scale: 1 }}
-            //   exit={{ opacity: 0, scale: 0.8 }}
-            //   className="relative p-[1.5px] !rounded-full overflow-hidden"
-            // >
-            //   <motion.div
-            //     animate={{ rotate: -360 }}
-            //     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            //     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%]"
-            //     style={{
-            //       background: "conic-gradient(from 0deg, transparent 0deg, #4285f4 40deg, transparent 80deg)",
-            //       filter: "blur(2px)",
-            //     }}
-            //   />
-<button
-  onClick={onBackHome}
-  style={LIQUID_GLASS}
-  className="w-12 h-12 !rounded-full flex items-center justify-center relative z-10"
->
-                <IconChevronLeft size={22} stroke={2.5} className="text-gray-700" />
-              </button>
-            // </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+                {/* TESTO DINAMICO ESPANDIBILE (STILE NETFLIX) */}
+                <AnimatePresence initial={false}>
+                  {active && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: "auto" }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                      className="relative z-10 overflow-hidden whitespace-nowrap text-sm tracking-tight"
+                    >
+                      {label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            );
+          })}
+        </div>
+      </motion.div>
     </div>
   );
 }
