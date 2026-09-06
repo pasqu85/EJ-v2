@@ -27,7 +27,11 @@ export type Tab = "home" | "applications" | "search" | "profile";
 const allTabs: {
   id: Tab;
   label: string;
-  Icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>;
+  Icon: React.ComponentType<{
+    size?: number;
+    stroke?: number;
+    className?: string;
+  }>;
 }[] = [
   { id: "home", label: "Home", Icon: IconHome },
   { id: "applications", label: "Candidature", Icon: IconChecklist },
@@ -39,20 +43,34 @@ export default function BottomBar({
   activeTab,
   onChange,
   onSearch,
+  onBackHome,
 }: {
   activeTab: Tab;
   onChange: (tab: Exclude<Tab, "search">) => void;
   onSearch: () => void;
+  onBackHome: () => void;
 }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function getAvatar() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).single();
-      if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+      }
     }
+
     getAvatar();
   }, []);
 
@@ -78,35 +96,46 @@ export default function BottomBar({
               <motion.button
                 key={id}
                 onClick={() => {
-                  if (id === "search") onSearch();
-                  else onChange(id as Exclude<Tab, "search">);
+                  if (id === "search") {
+                    onSearch();
+                  } else if (id === "home") {
+                    onBackHome();
+                  } else {
+                    onChange(id as Exclude<Tab, "search">);
+                  }
                 }}
                 whileTap={{ scale: 0.92 }}
                 transition={{ type: "spring", stiffness: 450, damping: 30 }}
                 className={clsx(
                   "relative flex h-12 items-center justify-center gap-2 px-4 !rounded-full transition-colors duration-300 select-none",
-                  active ? "text-emerald-950 font-black" : "text-slate-600 hover:text-slate-900"
+                  active
+                    ? "text-emerald-950 font-black"
+                    : "text-slate-600 hover:text-slate-900"
                 )}
                 aria-label={label}
               >
-                {/* PILOLA ATTIVA LIQUID GLASS */}
+                {/* PILLOLA ATTIVA LIQUID GLASS */}
                 {active && (
                   <motion.div
                     layoutId="liquidActivePillWorkerFixed"
                     className="absolute inset-0 !rounded-full bg-gradient-to-b from-white to-emerald-50/80 shadow-[0_8px_20px_rgba(16,185,129,0.15),_inset_0_1px_1px_rgba(255,255,255,1)] border border-white/90"
-                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 32,
+                    }}
                   />
                 )}
 
                 {/* AVATAR O ICONA */}
                 {id === "profile" && avatarUrl ? (
-                  <img 
-                    src={avatarUrl} 
-                    alt="Profilo" 
+                  <img
+                    src={avatarUrl}
+                    alt="Profilo"
                     className={clsx(
                       "relative z-10 w-6 h-6 object-cover rounded-full",
                       active ? "ring-2 ring-emerald-500" : "opacity-80"
-                    )} 
+                    )}
                   />
                 ) : (
                   <Icon
@@ -123,7 +152,11 @@ export default function BottomBar({
                       initial={{ opacity: 0, width: 0 }}
                       animate={{ opacity: 1, width: "auto" }}
                       exit={{ opacity: 0, width: 0 }}
-                      transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 380,
+                        damping: 28,
+                      }}
                       className="relative z-10 overflow-hidden whitespace-nowrap text-sm tracking-tight"
                     >
                       {label}
